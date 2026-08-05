@@ -1,0 +1,18 @@
+## macOS
+.DS_Store
+
+## Android / Gradle build outputs
+android/.gradle/
+android/**/build/
+android/local.properties
+android/captures/
+android/*.hprof
+
+## Android Studio project files (machine/user specific)
+android/.idea/*
+!android/.idea/.gitignore
+android/*.iml
+android/**/*.iml
+
+## Log files
+*.log
