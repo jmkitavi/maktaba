@@ -8,7 +8,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.maktaba.app"
+        applicationId = "com.jmkitavi.maktaba"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
