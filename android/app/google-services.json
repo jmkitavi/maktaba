@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "342586362152",
+    "project_id": "maktaba-2e21d",
+    "storage_bucket": "maktaba-2e21d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:342586362152:android:da40191ec2549a596c681d",
+        "android_client_info": {
+          "package_name": "com.jmkitavi.maktaba"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6ccGI-HlHwaluYkLbmmVcxTYkPLqdbtA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
