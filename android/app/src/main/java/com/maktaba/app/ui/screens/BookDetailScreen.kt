@@ -13,9 +13,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,20 +35,28 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.R
 import com.maktaba.app.data.BookStatus
+import com.maktaba.app.data.BookFormat
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookHavenBottomNav
-import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.components.SecondaryButton
-import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.BookCoverImage
+import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.theme.*
 
 @Composable
-fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.DEFAULT_BOOK_ID) {
-    val book = LibraryRepository.bookById(bookId) ?: LibraryRepository.books.first()
+fun BookDetailScreen(navController: NavHostController, bookId: String) {
+    val book = LibraryRepository.bookById(bookId)
+    if (book == null) {
+        UnavailableState(
+            title = "Book unavailable",
+            message = "This book could not be found.",
+            onBack = navController::popBackStack,
+            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
+        )
+        return
+    }
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(CreamBackground).statusBarsPadding()) {
         // Left-edge bookshelf/lamp bleed decoration
         Image(
             painter = painterResource(R.drawable.illus_book_detail),
@@ -83,9 +89,7 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
                     fontSize = 22.sp,
                     textAlign = TextAlign.Center
                 )
-                IconButton(onClick = {}) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "More", tint = InkBrown)
-                }
+                Spacer(Modifier.width(48.dp))
             }
 
             Column(
@@ -97,9 +101,8 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(4.dp))
-                Image(
-                    painter = painterResource(book.coverRes),
-                    contentDescription = book.title,
+                BookCoverImage(
+                    book = book,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth(0.46f)
@@ -152,6 +155,17 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
                     Spacer(Modifier.width(6.dp))
                     Text(badgeText, color = badgeFg, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
+                if (book.format == BookFormat.DIGITAL) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Digital / eBook",
+                        color = WoodBrown,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                            .background(ChipUnselectedBg)
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
 
                 Spacer(Modifier.height(10.dp))
                 Text(
@@ -176,9 +190,13 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    MetaItem(Icons.Filled.MenuBook, "Genre", book.genre)
-                    MetaItem(Icons.Filled.CalendarToday, "Published", book.published)
-                    MetaItem(Icons.Filled.Description, "Pages", book.pages.toString())
+                    MetaItem(Icons.Filled.MenuBook, "Genre", book.genre.ifBlank { "Unknown" })
+                    MetaItem(Icons.Filled.CalendarToday, "Published", book.published.ifBlank { "Unknown" })
+                    MetaItem(
+                        Icons.Filled.Description,
+                        "Pages",
+                        book.pages.takeIf { it > 0 }?.toString() ?: "Unknown"
+                    )
                 }
 
                 Spacer(Modifier.height(10.dp))
@@ -187,7 +205,8 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                 when (book.status) {
                     BookStatus.OWNED -> PrimaryButton(
-                        text = "Lend Book",
+                        text = if (book.format == BookFormat.DIGITAL) "Digital Edition" else "Lend Book",
+                        enabled = book.format != BookFormat.DIGITAL,
                         leadingIcon = { Icon(Icons.Filled.People, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
                         onClick = { navController.navigate(Routes.LendBookConfig.createRoute(book.id)) }
                     )
@@ -202,19 +221,22 @@ fun BookDetailScreen(navController: NavHostController, bookId: String = Routes.D
                         onClick = { navController.navigate(Routes.ActiveLoan.createRoute(book.id)) }
                     )
                 }
-                Spacer(Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "Edit Details",
-                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
-                    onClick = {}
-                )
+                if (book.format == BookFormat.DIGITAL) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        buildString {
+                            append("Digital editions can’t be lent through Maktaba.")
+                            if (book.physicalEditionIsbn13.isNotBlank()) {
+                                append(" Try physical ISBN ${book.physicalEditionIsbn13}.")
+                            }
+                        },
+                        color = MutedText,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 Spacer(Modifier.height(6.dp))
             }
-
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
         }
     }
 }
@@ -241,7 +263,7 @@ private fun MetaItem(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
 @Composable
 private fun BookDetailScreenPreview_Owned() {
     BookHavenTheme {
-        BookDetailScreen(navController = rememberNavController())
+        BookDetailScreen(navController = rememberNavController(), bookId = "preview")
     }
 }
 
@@ -249,7 +271,7 @@ private fun BookDetailScreenPreview_Owned() {
 @Composable
 private fun BookDetailScreenPreview_LentOut() {
     BookHavenTheme {
-        BookDetailScreen(navController = rememberNavController(), bookId = "hobbit")
+        BookDetailScreen(navController = rememberNavController(), bookId = "preview")
     }
 }
 
@@ -257,6 +279,6 @@ private fun BookDetailScreenPreview_LentOut() {
 @Composable
 private fun BookDetailScreenPreview_Borrowed() {
     BookHavenTheme {
-        BookDetailScreen(navController = rememberNavController(), bookId = "mockingbird")
+        BookDetailScreen(navController = rememberNavController(), bookId = "preview")
     }
 }
