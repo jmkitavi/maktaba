@@ -1,6 +1,5 @@
 package com.maktaba.app.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,12 +12,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maktaba.app.data.Book
+import com.maktaba.app.data.BookFormat
 import com.maktaba.app.ui.theme.InkBrown
 import com.maktaba.app.ui.theme.MutedText
 import com.maktaba.app.ui.theme.SurfaceCard
@@ -30,9 +29,8 @@ fun BookCoverCard(book: Book, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(14.dp))
             .background(SurfaceCard)
     ) {
-        Image(
-            painter = painterResource(book.coverRes),
-            contentDescription = book.title,
+        BookCoverImage(
+            book = book,
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
@@ -55,6 +53,14 @@ fun BookCoverCard(book: Book, modifier: Modifier = Modifier) {
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (book.format == BookFormat.DIGITAL) {
+                    Text(
+                        "Digital",
+                        color = InkBrown,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Text(
                     book.author,
                     color = MutedText,

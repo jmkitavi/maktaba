@@ -20,10 +20,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.data.LibraryRepository
-import com.maktaba.app.ui.components.BookHavenBottomNav
+import com.maktaba.app.data.BookFormat
 import com.maktaba.app.ui.components.BottomNavTab
+import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.theme.CreamBackground
 import com.maktaba.app.ui.theme.InkBrown
 import com.maktaba.app.ui.theme.MutedText
@@ -38,12 +40,17 @@ import com.maktaba.app.ui.theme.SurfaceCard
 fun CollectionsScreen(navController: NavHostController) {
     val books = LibraryRepository.books
     val collections = listOf(
+        "Maktaba Collection" to LibraryRepository.maktabaCollection,
         "Currently Reading" to books.filter { it.status == com.maktaba.app.data.BookStatus.OWNED }.take(3),
         "On Loan" to books.filter { it.status == com.maktaba.app.data.BookStatus.LENT_OUT },
         "Borrowed From Friends" to books.filter { it.status == com.maktaba.app.data.BookStatus.BORROWED }
     )
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    MaktabaScaffold(
+        selectedTab = BottomNavTab.COLLECTIONS,
+        onTabSelected = { navController.navigateToTab(it) }
+    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(CreamBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
             ScreenTopBar(title = "Collections")
             Column(
@@ -71,9 +78,8 @@ fun CollectionsScreen(navController: NavHostController) {
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(SurfaceCard)
                                 ) {
-                                    Image(
-                                        painter = painterResource(book.coverRes),
-                                        contentDescription = book.title,
+                                    BookCoverImage(
+                                        book = book,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -88,6 +94,15 @@ fun CollectionsScreen(navController: NavHostController) {
                                         maxLines = 2,
                                         modifier = Modifier.padding(6.dp)
                                     )
+                                    if (book.format == BookFormat.DIGITAL) {
+                                        Text(
+                                            "Digital",
+                                            color = MutedText,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -100,12 +115,7 @@ fun CollectionsScreen(navController: NavHostController) {
                 }
             }
         }
-        Box(modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) {
-            BookHavenBottomNav(
-                selected = BottomNavTab.COLLECTIONS,
-                onSelect = { navController.navigateToTab(it) }
-            )
-        }
+    }
     }
 }
 
