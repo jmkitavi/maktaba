@@ -1,0 +1,204 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isShortString(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max;
+    }
+
+    function isOptionalShortString(value, max) {
+      return value == null || (value is string && value.size() <= max);
+    }
+
+    function isTimestampOrNull(value) {
+      return value == null || value is timestamp;
+    }
+
+    function isFcmPlatform(value) {
+      return value == 'android' ||
+        value == 'ios' ||
+        value == 'web' ||
+        value == 'unknown';
+    }
+
+    function isUserBookStatus(value) {
+      return value == 'AVAILABLE' || value == 'ARCHIVED';
+    }
+
+    function validWishlistEntry(data) {
+      return data.keys().hasOnly([
+          'addedAt'
+        ]) &&
+        data.addedAt is timestamp;
+    }
+
+    function validUserBook(data) {
+      return data.keys().hasOnly([
+          'ownerId',
+          'catalogBookId',
+          'status',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isShortString(data.ownerId, 6, 128) &&
+        isShortString(data.catalogBookId, 2, 128) &&
+        isUserBookStatus(data.status) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function validClientUserProfile(data) {
+      return data.keys().hasOnly([
+          'displayName',
+          'email',
+          'photoUrl',
+          'notificationsEnabled',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isShortString(data.displayName, 1, 80) &&
+        isOptionalShortString(data.email, 320) &&
+        (data.photoUrl == null || isShortString(data.photoUrl, 1, 2048)) &&
+        data.notificationsEnabled is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function validFcmToken(data) {
+      return data.keys().hasOnly([
+          'token',
+          'platform',
+          'createdAt',
+          'updatedAt',
+          'lastSeenAt',
+          'appVersion'
+        ]) &&
+        isShortString(data.token, 20, 4096) &&
+        isFcmPlatform(data.platform) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.lastSeenAt is timestamp &&
+        isOptionalShortString(data.appVersion, 64);
+    }
+
+    function isLoanParticipant(data) {
+      return isSignedIn() &&
+        (data.lenderUid == request.auth.uid ||
+          data.borrowerUid == request.auth.uid);
+    }
+
+    function isInviteViewer(data) {
+      return isSignedIn() &&
+        (data.lenderUid == request.auth.uid ||
+          (data.status == 'accepted' &&
+            data.borrowerUid == request.auth.uid));
+    }
+
+    function notificationUpdateAllowed() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRead',
+          'readAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.recipientUid == resource.data.recipientUid &&
+        request.resource.data.type == resource.data.type &&
+        request.resource.data.title == resource.data.title &&
+        request.resource.data.body == resource.data.body &&
+        request.resource.data.actorUid == resource.data.actorUid &&
+        request.resource.data.loanId == resource.data.loanId &&
+        request.resource.data.inviteId == resource.data.inviteId &&
+        request.resource.data.catalogBookId == resource.data.catalogBookId &&
+        request.resource.data.data == resource.data.data &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.push == resource.data.push &&
+        request.resource.data.isRead is bool &&
+        isTimestampOrNull(request.resource.data.readAt) &&
+        request.resource.data.updatedAt is timestamp;
+    }
+
+    match /catalog/{bookId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /catalogBooks/{bookId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /isbnLookupCache/{isbn13} {
+      allow read, write: if false;
+    }
+
+    match /isbnLookupThrottle/{userId} {
+      allow read, write: if false;
+    }
+
+    match /userBooks/{copyId} {
+      allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        validUserBook(request.resource.data);
+      allow update: if isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.catalogBookId == resource.data.catalogBookId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        validUserBook(request.resource.data);
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId);
+      allow create, update: if isSelf(userId) && validClientUserProfile(request.resource.data);
+      allow delete: if false;
+
+      match /fcmTokens/{tokenId} {
+        allow read: if isSelf(userId);
+        allow create, update: if isSelf(userId) && validFcmToken(request.resource.data);
+        allow delete: if isSelf(userId);
+      }
+
+      match /wishlist/{catalogId} {
+        allow read: if isSelf(userId);
+        allow create, update: if isSelf(userId) && validWishlistEntry(request.resource.data);
+        allow delete: if isSelf(userId);
+      }
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSelf(resource.data.recipientUid);
+      allow update: if isSelf(resource.data.recipientUid) && notificationUpdateAllowed();
+      allow create, delete: if false;
+    }
+
+    match /loanInvites/{inviteId} {
+      allow read: if isInviteViewer(resource.data);
+      allow write: if false;
+    }
+
+    match /loanInviteCodes/{code} {
+      allow read, write: if false;
+    }
+
+    match /loans/{loanId} {
+      allow read: if isLoanParticipant(resource.data);
+      allow write: if false;
+    }
+
+    match /lendingSlots/{slotId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "maktaba-firebase-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "clean": "rm -rf lib",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "test": "npm run build && node --test lib/test/*.test.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "firebase-admin": "^13.10.0",
+    "firebase-functions": "^7.3.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^26.2.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}

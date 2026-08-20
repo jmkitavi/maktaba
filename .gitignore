@@ -16,3 +16,9 @@ android/**/*.iml
 
 ## Log files
 *.log
+
+## Firebase local emulator state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
