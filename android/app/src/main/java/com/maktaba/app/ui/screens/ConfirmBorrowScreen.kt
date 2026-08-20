@@ -16,8 +16,15 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,20 +41,53 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookHavenBottomNav
-import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.OutlinedPillButton
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.BookCoverImage
+import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.theme.*
+import com.maktaba.app.util.LoanTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
-fun ConfirmBorrowScreen(navController: NavHostController, bookId: String = Routes.DEFAULT_BOOK_ID) {
-    val book = LibraryRepository.bookById(bookId) ?: LibraryRepository.books.first()
-    val lenderName = "Ava Thompson"
-    val dueDate = "Saturday, June 21, 2025"
+fun ConfirmBorrowScreen(navController: NavHostController, inviteCode: String) {
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var resolving by remember(inviteCode) { mutableStateOf(true) }
+    var resolvedBookId by remember(inviteCode) {
+        mutableStateOf(LibraryRepository.bookIdForCode(inviteCode))
+    }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(inviteCode) {
+        if (resolvedBookId == null) {
+            runCatching { LibraryRepository.resolveLoanCode(inviteCode) }
+                .onSuccess { resolvedBookId = it }
+                .onFailure { error = it.localizedMessage ?: "This borrowing invitation is unavailable." }
+        }
+        resolving = false
+    }
+    if (resolving) {
+        Box(Modifier.fillMaxSize().background(CreamBackground), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = WoodBrown)
+        }
+        return
+    }
+    val bookId = resolvedBookId
+    val book = bookId?.let(LibraryRepository::bookById)
+    val invitation = bookId?.let(LibraryRepository::activeLoanFor)
+    if (book == null || invitation == null) {
+        UnavailableState(
+            title = "Invitation unavailable",
+            message = "This borrowing invitation could not be found.",
+            onBack = navController::popBackStack,
+            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
+        )
+        return
+    }
+    val lenderName = invitation.counterpartyName
+    val dueDate = LoanTimeFormatter.formatDate(invitation.dueAt)
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(CreamBackground).statusBarsPadding()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -105,9 +145,8 @@ fun ConfirmBorrowScreen(navController: NavHostController, bookId: String = Route
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Image(
-                    painter = painterResource(book.coverRes),
-                    contentDescription = book.title,
+                BookCoverImage(
+                    book = book,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .width(120.dp)
@@ -184,12 +223,25 @@ fun ConfirmBorrowScreen(navController: NavHostController, bookId: String = Route
             Spacer(Modifier.height(20.dp))
 
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                if (error != null) {
+                    Text(error!!, color = Color(0xFFB3261E), fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                }
                 PrimaryButton(
                     text = "Confirm Receipt",
+                    loading = loading,
+                    enabled = !loading,
                     leadingIcon = { Icon(Icons.Filled.MenuBook, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
                     onClick = {
-                        LibraryRepository.confirmBorrow(book.id, lenderName, dueDate)
-                        navController.navigate(Routes.ActiveLoan.createRoute(book.id))
+                        if (loading) return@PrimaryButton
+                        loading = true
+                        error = null
+                        scope.launch {
+                            runCatching { LibraryRepository.confirmBorrow(book.id, lenderName, dueDate) }
+                                .onSuccess { navController.navigate(Routes.ActiveLoan.createRoute(book.id)) }
+                                .onFailure { error = it.localizedMessage ?: "Could not accept this loan." }
+                            loading = false
+                        }
                     }
                 )
                 Spacer(Modifier.height(10.dp))
@@ -224,11 +276,7 @@ fun ConfirmBorrowScreen(navController: NavHostController, bookId: String = Route
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -237,6 +285,6 @@ fun ConfirmBorrowScreen(navController: NavHostController, bookId: String = Route
 @Composable
 private fun ConfirmBorrowScreenPreview() {
     BookHavenTheme {
-        ConfirmBorrowScreen(navController = rememberNavController())
+        ConfirmBorrowScreen(navController = rememberNavController(), inviteCode = "ABCD-2345")
     }
 }

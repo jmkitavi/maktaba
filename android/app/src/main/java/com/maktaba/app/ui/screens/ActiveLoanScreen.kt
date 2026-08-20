@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,28 +33,47 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.LoanStatus
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookHavenBottomNav
-import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.SecondaryButton
-import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.BookCoverImage
+import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.theme.*
+import com.maktaba.app.util.LoanTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
-fun ActiveLoanScreen(navController: NavHostController, bookId: String = Routes.DEFAULT_BOOK_ID) {
-    val book = LibraryRepository.bookById(bookId) ?: LibraryRepository.books.first()
-    val loan = LibraryRepository.activeLoanFor(book.id)
-    val counterpartyLabel = if (loan?.isLender != false) "Borrower" else "Lender"
-    val counterpartyName = loan?.counterpartyName ?: "Alex Johnson"
-    val dueDate = loan?.dueDate ?: "May 28, 2025"
+fun ActiveLoanScreen(navController: NavHostController, bookId: String) {
+    val scope = rememberCoroutineScope()
+    var reminderLoading by remember { mutableStateOf(false) }
+    var feedback by remember { mutableStateOf<String?>(null) }
+    val book = LibraryRepository.bookById(bookId)
+    val loan = LibraryRepository.activeLoanFor(bookId)
+    if (book == null || loan == null) {
+        UnavailableState(
+            title = "Loan unavailable",
+            message = "This active loan could not be found.",
+            onBack = navController::popBackStack,
+            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
+        )
+        return
+    }
+    val counterpartyLabel = if (loan.isLender) "Borrower" else "Lender"
+    val counterpartyName = loan.counterpartyName
+    val dueDate = LoanTimeFormatter.formatDate(loan.dueAt)
+    val returnRequested = loan.status == LoanStatus.RETURN_REQUESTED
+    val waitingForConfirmation = returnRequested && loan.returnRequestedByCurrentUser
+    val returnActionLabel = when {
+        waitingForConfirmation -> "Waiting for Confirmation"
+        returnRequested -> "Confirm Return"
+        else -> "Request Return"
+    }
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
+    Column(
+        modifier = Modifier.fillMaxSize().background(CreamBackground).statusBarsPadding()
+            .verticalScroll(rememberScrollState()).navigationBarsPadding()
+    ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -87,9 +106,8 @@ fun ActiveLoanScreen(navController: NavHostController, bookId: String = Routes.D
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Image(
-                    painter = painterResource(book.coverRes),
-                    contentDescription = book.title,
+                BookCoverImage(
+                    book = book,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .width(120.dp)
@@ -126,7 +144,7 @@ fun ActiveLoanScreen(navController: NavHostController, bookId: String = Routes.D
 
             Spacer(Modifier.height(22.dp))
             Text(
-                "Days Remaining",
+                "Return Timeline",
                 fontFamily = SerifDisplay,
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp,
@@ -136,42 +154,63 @@ fun ActiveLoanScreen(navController: NavHostController, bookId: String = Routes.D
             )
 
             Spacer(Modifier.height(12.dp))
-            Row(
+            Box(
                 modifier = Modifier
                     .padding(horizontal = 20.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(SurfaceCard)
                     .padding(vertical = 16.dp)
                     .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                contentAlignment = Alignment.Center
             ) {
-                TimeBlock("05", "Days")
-                TimeBlock("14", "Hours")
-                TimeBlock("32", "Minutes")
-                TimeBlock("47", "Seconds")
+                Text(
+                    LoanTimeFormatter.remaining(loan.dueAt),
+                    color = WoodBrown,
+                    fontFamily = SerifDisplay,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp
+                )
             }
 
             Spacer(Modifier.height(22.dp))
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                PrimaryButton(
-                    text = "Send Reminder",
-                    leadingIcon = { Icon(Icons.Filled.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
-                    onClick = {}
-                )
-                Spacer(Modifier.height(10.dp))
+                if (loan.isLender) {
+                    PrimaryButton(
+                        text = "Send Reminder",
+                        loading = reminderLoading,
+                        enabled = !reminderLoading,
+                        leadingIcon = { Icon(Icons.Filled.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
+                        onClick = {
+                            reminderLoading = true
+                            feedback = null
+                            scope.launch {
+                                runCatching { LibraryRepository.sendReminder(book.id) }
+                                    .onSuccess { feedback = "Reminder sent." }
+                                    .onFailure { feedback = it.localizedMessage ?: "Could not send reminder." }
+                                reminderLoading = false
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
                 SecondaryButton(
-                    text = "Confirm Return",
+                    text = returnActionLabel,
+                    enabled = !waitingForConfirmation,
                     leadingIcon = { Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
                     onClick = { navController.navigate(Routes.ReturnConfirmation.createRoute(book.id)) }
                 )
+                feedback?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        it,
+                        color = if (it == "Reminder sent.") SuccessGreen else Color(0xFFB3261E),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             Spacer(Modifier.height(18.dp))
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
-        }
     }
 }
 
@@ -192,20 +231,11 @@ private fun LabelRow(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
     }
 }
 
-@Composable
-private fun TimeBlock(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontFamily = SerifDisplay, fontWeight = FontWeight.Bold, fontSize = 30.sp, color = WoodBrown)
-        Spacer(Modifier.height(2.dp))
-        Text(label, fontSize = 12.sp, color = MutedText)
-    }
-}
-
 @Preview(showBackground = true, name = "ActiveLoanScreenPreview")
 @Composable
 private fun ActiveLoanScreenPreview() {
     BookHavenTheme {
-        ActiveLoanScreen(navController = rememberNavController())
+        ActiveLoanScreen(navController = rememberNavController(), bookId = "preview")
     }
 }
 
@@ -213,6 +243,6 @@ private fun ActiveLoanScreenPreview() {
 @Composable
 private fun ActiveLoanScreenPreview_Borrowed() {
     BookHavenTheme {
-        ActiveLoanScreen(navController = rememberNavController(), bookId = "mockingbird")
+        ActiveLoanScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

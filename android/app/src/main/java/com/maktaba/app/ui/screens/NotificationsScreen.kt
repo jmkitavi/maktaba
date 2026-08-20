@@ -55,8 +55,21 @@ fun NotificationsScreen(navController: NavHostController) {
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(if (item.isUnread) SurfaceCardAlt else SurfaceCard)
                                 .clickable {
+                                    if (item.bookId.isBlank()) return@clickable
                                     LibraryRepository.markNotificationRead(item.id)
-                                    navController.navigate(Routes.ReturnReminder.createRoute(item.bookId))
+                                    val route = when (item.type) {
+                                        "loan_invite_accepted", "loan_reminder" ->
+                                            Routes.ActiveLoan.createRoute(item.bookId)
+                                        "return_requested" ->
+                                            Routes.ReturnConfirmation.createRoute(item.bookId)
+                                        "return_confirmed" ->
+                                            Routes.BookDetail.createRoute(
+                                                item.catalogBookId.ifBlank { item.bookId }
+                                            )
+                                        else ->
+                                            Routes.ReturnReminder.createRoute(item.bookId)
+                                    }
+                                    navController.navigate(route)
                                 }
                                 .padding(14.dp),
                             verticalAlignment = Alignment.CenterVertically

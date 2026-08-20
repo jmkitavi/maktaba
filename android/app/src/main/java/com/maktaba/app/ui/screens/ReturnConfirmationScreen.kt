@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,21 +35,67 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.R
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.FirebaseSession
+import com.maktaba.app.data.LoanStatus
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookHavenBottomNav
-import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.BookCoverImage
+import com.maktaba.app.ui.components.ConfirmationDialog
+import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.theme.*
+import com.maktaba.app.util.LoanTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
-fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = Routes.DEFAULT_BOOK_ID) {
-    val book = LibraryRepository.bookById(bookId) ?: LibraryRepository.books.first()
-    val loan = LibraryRepository.activeLoanFor(book.id)
-    val counterpartyLabel = if (loan?.isLender != false) "Borrower" else "Lender"
-    val counterpartyName = loan?.counterpartyName ?: "Jamie Lee"
+fun ReturnConfirmationScreen(navController: NavHostController, bookId: String) {
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showConfirmation by remember { mutableStateOf(false) }
+    val book = LibraryRepository.bookById(bookId)
+    val loan = LibraryRepository.activeLoanFor(bookId)
+    if (book == null || loan == null) {
+        UnavailableState(
+            title = "Loan unavailable",
+            message = "This return workflow is no longer available.",
+            onBack = navController::popBackStack,
+            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
+        )
+        return
+    }
+    val returnRequested = loan.status == LoanStatus.RETURN_REQUESTED
+    val waitingForCounterparty = returnRequested && loan.returnRequestedById == FirebaseSession.currentUser?.uid
+    val confirmingCounterpartyRequest = returnRequested && !waitingForCounterparty
+    val counterpartyLabel = if (loan.isLender) "Borrower" else "Lender"
+    val counterpartyName = loan.counterpartyName
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    if (showConfirmation) {
+        ConfirmationDialog(
+            title = if (confirmingCounterpartyRequest) "Confirm returned book?" else "Request a return?",
+            message = if (confirmingCounterpartyRequest) {
+                "This closes the loan for both participants."
+            } else {
+                "The other participant will be notified and asked to confirm."
+            },
+            confirmLabel = if (confirmingCounterpartyRequest) "Confirm Return" else "Request Return",
+            loading = loading,
+            destructive = confirmingCounterpartyRequest,
+            onConfirm = {
+                loading = true
+                error = null
+                scope.launch {
+                    runCatching { LibraryRepository.confirmReturn(book.id) }
+                        .onSuccess { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
+                        .onFailure { error = it.localizedMessage ?: "Could not update the return." }
+                    loading = false
+                    if (error == null) showConfirmation = false
+                }
+            },
+            onDismiss = { showConfirmation = false }
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(CreamBackground).statusBarsPadding()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -89,7 +135,11 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
 
             Spacer(Modifier.height(6.dp))
             Text(
-                "Return confirmed!",
+                when {
+                    confirmingCounterpartyRequest -> "Confirm the return"
+                    waitingForCounterparty -> "Return requested"
+                    else -> "Request a return"
+                },
                 fontFamily = SerifDisplay,
                 fontWeight = FontWeight.Bold,
                 fontSize = 28.sp,
@@ -99,7 +149,11 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Thank you for sharing.",
+                when {
+                    confirmingCounterpartyRequest -> "The other party marked this book as returned."
+                    waitingForCounterparty -> "Waiting for the other party to confirm."
+                    else -> "The other party will be asked to confirm."
+                },
                 fontSize = 15.sp,
                 color = InkBrownSoft,
                 textAlign = TextAlign.Center,
@@ -116,9 +170,8 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Image(
-                    painter = painterResource(book.coverRes),
-                    contentDescription = book.title,
+                BookCoverImage(
+                    book = book,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .width(100.dp)
@@ -136,11 +189,15 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
                     )
                     Text(book.author, fontSize = 14.sp, color = SuccessGreen)
                     Spacer(Modifier.height(10.dp))
-                    DetailLine(Icons.Filled.CalendarToday, "Borrowed on", "Apr 28, 2024")
+                    DetailLine(
+                        Icons.Filled.CalendarToday,
+                        "Borrowed on",
+                        LoanTimeFormatter.formatDate(loan.acceptedAt)
+                    )
                     Spacer(Modifier.height(8.dp))
                     DetailLine(Icons.Filled.Person, counterpartyLabel, counterpartyName)
                     Spacer(Modifier.height(8.dp))
-                    DetailLine(Icons.Filled.EventAvailable, "Returned on", "May 26, 2024")
+                    DetailLine(Icons.Filled.EventAvailable, "Status", if (confirmingCounterpartyRequest) "Awaiting your confirmation" else "Active loan")
                 }
             }
 
@@ -165,26 +222,28 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("Return successful", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = InkBrown)
-                    Text("The book has been returned. Happy reading!", fontSize = 12.sp, color = InkBrownSoft)
+                    Text("Two-party confirmation", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = InkBrown)
+                    Text("Both lender and borrower confirm before the loan closes.", fontSize = 12.sp, color = InkBrownSoft)
                 }
             }
 
             Spacer(Modifier.height(18.dp))
             Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                 PrimaryButton(
-                    text = "Confirm Return",
+                    text = when {
+                        confirmingCounterpartyRequest -> "Confirm Return"
+                        waitingForCounterparty -> "Awaiting Confirmation"
+                        else -> "Request Return"
+                    },
                     leadingIcon = { Icon(Icons.Filled.Handshake, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
-                    onClick = {
-                        LibraryRepository.confirmReturn(book.id)
-                        val popped = navController.popBackStack(Routes.HomeLibrary.route, inclusive = false)
-                        if (!popped) {
-                            navController.navigate(Routes.HomeLibrary.route) {
-                                popUpTo(0)
-                            }
-                        }
-                    }
+                    enabled = !waitingForCounterparty && !loading,
+                    loading = loading,
+                    onClick = { showConfirmation = true }
                 )
+            }
+            error?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, color = Color(0xFFB3261E), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
             Spacer(Modifier.height(6.dp))
             Text(
@@ -223,11 +282,7 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String = 
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -246,6 +301,6 @@ private fun DetailLine(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 @Composable
 private fun ReturnConfirmationScreenPreview() {
     BookHavenTheme {
-        ReturnConfirmationScreen(navController = rememberNavController())
+        ReturnConfirmationScreen(navController = rememberNavController(), bookId = "preview")
     }
 }
