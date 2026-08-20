@@ -16,6 +16,7 @@ export interface BookSnapshot {
   title: string;
   author: string;
   coverStoragePath: string;
+  coverUrl?: string;
 }
 
 export interface CatalogBookRecord {
@@ -27,6 +28,11 @@ export interface CatalogBookRecord {
   pages: number;
   description: string;
   coverStoragePath: string;
+  coverUrl?: string;
+  coverSource?: "storage" | "placeholder";
+  coverOriginalUrl?: string;
+  coverContentHash?: string;
+  coverCachedAt?: FirebaseFirestore.Timestamp;
   searchableTitle: string;
   searchableAuthor: string;
   binding?: string;
@@ -56,7 +62,10 @@ export interface CatalogBookAppRecord {
   metadataSource?: "firebase" | "isbnsearch" | "manual";
   metadataSourceUrl?: string;
   metadataFetchedAt?: FirebaseFirestore.Timestamp | null;
-  coverSource?: "storage" | "remote" | "bundled";
+  coverSource?: "storage" | "placeholder";
+  coverOriginalUrl?: string;
+  coverContentHash?: string;
+  coverCachedAt?: FirebaseFirestore.Timestamp;
   createdByUid?: string;
   createdAt: FirebaseFirestore.Timestamp;
   updatedAt: FirebaseFirestore.Timestamp;
@@ -73,6 +82,10 @@ export interface IsbnBookMetadata {
   publisher: string | null;
   publishedDate: string | null;
   coverUrl: string | null;
+  coverStoragePath?: string;
+  coverSource?: "storage" | "placeholder";
+  coverOriginalUrl?: string;
+  coverContentHash?: string;
   sourceUrl: string;
 }
 

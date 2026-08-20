@@ -28,6 +28,12 @@ import {
   suggestPhysicalEditionIsbn13,
 } from "./lib/bookFormat";
 import { DomainError, assertDomain } from "./lib/domain";
+import {
+  DEFAULT_BOOK_COVER_URL,
+  storedCoverFromRecord,
+  storeCoverOrPlaceholder,
+  type StoredCover,
+} from "./lib/coverStorage";
 import { normalizeIsbn } from "./lib/isbn";
 import { fetchIsbnSearch } from "./lib/isbnSearch";
 import {
@@ -69,7 +75,7 @@ import type {
 } from "./models";
 
 ensureAdminApp();
-const { app, db, messaging } = getServices();
+const { app, db, messaging, storage } = getServices();
 const storageBucket = resolveStorageBucket(
   process.env,
   typeof app.options.storageBucket === "string" ? app.options.storageBucket : null,
@@ -92,7 +98,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
-const DEFAULT_BOOK_COVER_URL = "https://images.isbndb.com/covers/18052683482712.jpg";
 
 function normalizeSearchText(value: string): string {
   return value.trim().toLowerCase();
@@ -239,9 +244,19 @@ function makeLoanStateSnapshot(loan: LoanDocument): LoanStateSnapshot {
   };
 }
 
-function coverUrlForPath(coverStoragePath: string): string {
+function coverUrlForBook(book: Pick<BookSnapshot, "coverStoragePath" | "coverUrl">): string {
+  if (book.coverUrl) {
+    return book.coverUrl;
+  }
+  if (book.coverStoragePath && storageBucket) {
+    return buildStorageMediaUrl(storageBucket, book.coverStoragePath);
+  }
+  return "";
+}
+
+function coverBucket() {
   assertDomain(storageBucket, "failed-precondition", "Storage bucket is not configured.");
-  return buildStorageMediaUrl(storageBucket, coverStoragePath);
+  return storage.bucket(storageBucket);
 }
 
 function inviteCopyId(invite: Pick<LoanInviteDocument, "copyId" | "catalogBookId">): string {
@@ -266,7 +281,7 @@ function serializeResolvedInvite(
     title: invite.book.title,
     author: invite.book.author,
     authors: [invite.book.author],
-    coverUrl: coverUrlForPath(invite.book.coverStoragePath),
+    coverUrl: coverUrlForBook(invite.book),
     lenderDisplayName: invite.lenderDisplayName,
     dueAtMillis: invite.dueDate.toMillis(),
     canAccept,
@@ -283,7 +298,7 @@ function serializeLoan(loanId: string, loan: LoanDocument) {
     title: loan.book.title,
     author: loan.book.author,
     authors: [loan.book.author],
-    coverUrl: coverUrlForPath(loan.book.coverStoragePath),
+    coverUrl: coverUrlForBook(loan.book),
     lenderDisplayName: loan.lenderDisplayName,
     borrowerDisplayName: loan.borrowerDisplayName,
     dueAtMillis: loan.dueDate.toMillis(),
@@ -303,7 +318,7 @@ function serializeCancelledInvite(inviteId: string, invite: LoanInviteDocument) 
     title: invite.book.title,
     author: invite.book.author,
     authors: [invite.book.author],
-    coverUrl: coverUrlForPath(invite.book.coverStoragePath),
+    coverUrl: coverUrlForBook(invite.book),
     lenderDisplayName: invite.lenderDisplayName,
     dueAtMillis: invite.dueDate.toMillis(),
     expiresAtMillis: invite.expiresAt.toMillis(),
@@ -318,6 +333,7 @@ function buildBookSnapshot(catalog: CatalogBookRecord): BookSnapshot {
     title: catalog.title,
     author: catalog.author,
     coverStoragePath: catalog.coverStoragePath,
+    coverUrl: catalog.coverUrl,
   };
 }
 
@@ -710,7 +726,7 @@ function buildCatalogRecordFromAppRecord(
   now: Timestamp,
 ): CatalogBookRecord {
   const author = appRecord.authors[0] ?? "Unknown author";
-  const genre = appRecord.genres[0] ?? "Fiction";
+  const genre = appRecord.genres[0] ?? "";
   const physicalEdition = appRecord.physicalEditionIsbn13;
 
   return {
@@ -722,6 +738,11 @@ function buildCatalogRecordFromAppRecord(
     pages: appRecord.pageCount,
     description: appRecord.description,
     coverStoragePath: appRecord.coverStoragePath,
+    coverUrl: appRecord.coverUrl,
+    coverSource: appRecord.coverSource,
+    coverOriginalUrl: appRecord.coverOriginalUrl,
+    coverContentHash: appRecord.coverContentHash,
+    coverCachedAt: appRecord.coverCachedAt,
     searchableTitle: normalizeSearchText(appRecord.title),
     searchableAuthor: normalizeSearchText(author),
     ...(appRecord.binding ? { binding: appRecord.binding } : {}),
@@ -842,8 +863,36 @@ function metadataFromCatalog(
     publisher: record.publisher ?? null,
     publishedDate: record.publishedDate ?? null,
     coverUrl: record.coverUrl || null,
+    coverStoragePath: record.coverStoragePath || undefined,
+    coverSource: record.coverSource,
+    coverOriginalUrl: record.coverOriginalUrl,
+    coverContentHash: record.coverContentHash,
     sourceUrl: record.metadataSourceUrl ?? "",
   };
+}
+
+async function cacheCatalogCover(
+  catalogBookId: string,
+  record: CatalogBookAppRecord,
+): Promise<CatalogBookAppRecord> {
+  const existingStoredCover = storedCoverFromRecord(record, storageBucket!);
+  const storedCover = existingStoredCover ?? await storeCoverOrPlaceholder({
+    bucket: coverBucket(),
+    bucketName: storageBucket!,
+    sourceUrl: record.coverOriginalUrl || record.coverUrl,
+    catalogKey: record.isbn13 || catalogBookId,
+  });
+  const now = Timestamp.now();
+  const update = {
+    ...storedCover,
+    coverCachedAt: now,
+    updatedAt: now,
+  };
+  const batch = db.batch();
+  batch.set(db.collection(COLLECTIONS.catalogBooks).doc(catalogBookId), update, { merge: true });
+  batch.set(db.collection(COLLECTIONS.catalog).doc(catalogBookId), update, { merge: true });
+  await batch.commit();
+  return { ...record, ...update };
 }
 
 async function findCatalogByIsbn(isbn13: string, isbn10: string | null) {
@@ -869,11 +918,15 @@ export const lookupBookByIsbn = withCallableErrors(async (request) => {
   const normalized = normalizeIsbn((request.data as { isbn?: unknown } | null)?.isbn);
   const catalogSnapshot = await findCatalogByIsbn(normalized.isbn13, normalized.isbn10);
   if (catalogSnapshot) {
+    const catalogRecord = await cacheCatalogCover(
+      catalogSnapshot.id,
+      catalogSnapshot.data() as CatalogBookAppRecord,
+    );
     return {
       source: "firebase",
       metadata: metadataFromCatalog(
         catalogSnapshot.id,
-        catalogSnapshot.data() as CatalogBookAppRecord,
+        catalogRecord,
       ),
     };
   }
@@ -887,14 +940,25 @@ export const lookupBookByIsbn = withCallableErrors(async (request) => {
         throw new DomainError("not-found", "No book was found for that ISBN.");
       }
       assertDomain(cached.metadata, "not-found", "No book was found for that ISBN.");
-      const format = resolveBookFormat(cached.metadata.binding, cached.metadata.format);
-      const physicalEditionIsbn13 = cached.metadata.physicalEditionIsbn13 ??
-        suggestPhysicalEditionIsbn13(cached.metadata.isbn13, format);
+      let cachedMetadata = cached.metadata;
+      if (!storedCoverFromRecord(cachedMetadata, storageBucket!)) {
+        const storedCover = await storeCoverOrPlaceholder({
+          bucket: coverBucket(),
+          bucketName: storageBucket!,
+          sourceUrl: cachedMetadata.coverUrl,
+          catalogKey: normalized.isbn13,
+        });
+        cachedMetadata = { ...cachedMetadata, ...storedCover };
+        await cacheRef.set({ metadata: cachedMetadata }, { merge: true });
+      }
+      const format = resolveBookFormat(cachedMetadata.binding, cachedMetadata.format);
+      const physicalEditionIsbn13 = cachedMetadata.physicalEditionIsbn13 ??
+        suggestPhysicalEditionIsbn13(cachedMetadata.isbn13, format);
       return {
         source: "isbnsearch",
         cached: true,
         metadata: {
-          ...cached.metadata,
+          ...cachedMetadata,
           format,
           ...(physicalEditionIsbn13 ? { physicalEditionIsbn13 } : {}),
         },
@@ -925,17 +989,27 @@ export const lookupBookByIsbn = withCallableErrors(async (request) => {
 
   try {
     const result = await fetchIsbnSearch(normalized.isbn13);
+    const storedCover = await storeCoverOrPlaceholder({
+      bucket: coverBucket(),
+      bucketName: storageBucket!,
+      sourceUrl: result.metadata.coverUrl,
+      catalogKey: normalized.isbn13,
+    });
+    const metadata: IsbnBookMetadata = {
+      ...result.metadata,
+      ...storedCover,
+    };
     const now = Timestamp.now();
     await cacheRef.set({
       status: "found",
-      metadata: result.metadata,
+      metadata,
       responseHash: result.responseHash,
       fetchedAt: now,
       expiresAt: Timestamp.fromMillis(now.toMillis() + (30 * 86_400_000)),
       parserVersion: 1,
     } satisfies IsbnLookupCacheDocument);
     logger.info("ISBN lookup succeeded", { uid: auth.uid, isbn13: normalized.isbn13 });
-    return { source: "isbnsearch", cached: false, metadata: result.metadata };
+    return { source: "isbnsearch", cached: false, metadata };
   } catch (error: unknown) {
     if (error instanceof DomainError && error.code === "not-found") {
       const now = Timestamp.now();
@@ -1024,6 +1098,41 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
       normalized ? `isbn_${normalized.isbn13}` : `manual_${randomUUID()}`,
     );
   const legacyRef = db.collection(COLLECTIONS.catalog).doc(catalogRef.id);
+  let storedCover: StoredCover | null = null;
+  if (!existingCatalog) {
+    let cachedCover: IsbnBookMetadata | null = null;
+    if (normalized) {
+      const cachedSnapshot = await db.collection(COLLECTIONS.isbnLookupCache)
+        .doc(normalized.isbn13)
+        .get();
+      const cachedDocument = cachedSnapshot.exists
+        ? cachedSnapshot.data() as IsbnLookupCacheDocument
+        : null;
+      cachedCover = cachedDocument?.status === "found" ? cachedDocument.metadata : null;
+    }
+    if (
+      cachedCover?.coverUrl &&
+      cachedCover.coverStoragePath &&
+      cachedCover.coverSource &&
+      cachedCover.coverOriginalUrl &&
+      cachedCover.coverContentHash
+    ) {
+      storedCover = {
+        coverUrl: cachedCover.coverUrl,
+        coverStoragePath: cachedCover.coverStoragePath,
+        coverSource: cachedCover.coverSource,
+        coverOriginalUrl: cachedCover.coverOriginalUrl,
+        coverContentHash: cachedCover.coverContentHash,
+      };
+    } else {
+      storedCover = await storeCoverOrPlaceholder({
+        bucket: coverBucket(),
+        bucketName: storageBucket!,
+        sourceUrl: optionalString(input.coverUrl, 2048) || DEFAULT_BOOK_COVER_URL,
+        catalogKey: normalized?.isbn13 ?? catalogRef.id,
+      });
+    }
+  }
 
   const result = await db.runTransaction(async (transaction) => {
     const [catalogSnapshot, duplicateSnapshot] = await Promise.all([
@@ -1044,7 +1153,7 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
     if (!existing) {
       const publishedDate = optionalString(input.publishedDate, 32);
       const publishedYear = Number.parseInt(publishedDate.slice(0, 4), 10) || 0;
-      const coverUrl = optionalString(input.coverUrl, 2048) || DEFAULT_BOOK_COVER_URL;
+      assertDomain(storedCover, "internal", "Cover metadata was not prepared.");
       const genres = Array.isArray(input.genres)
         ? input.genres.filter((value): value is string => typeof value === "string")
           .map((value) => value.trim()).filter(Boolean).slice(0, 12)
@@ -1063,8 +1172,8 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
         title,
         normalizedTitle: normalizeSearchText(title),
         authors,
-        coverUrl,
-        coverStoragePath: "",
+        coverUrl: storedCover.coverUrl,
+        coverStoragePath: storedCover.coverStoragePath,
         genres,
         publishedYear,
         pageCount,
@@ -1079,7 +1188,10 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
         metadataSource,
         metadataSourceUrl: optionalString(input.metadataSourceUrl, 2048),
         metadataFetchedAt: metadataSource === "isbnsearch" ? now : null,
-        coverSource: "remote",
+        coverSource: storedCover.coverSource,
+        coverOriginalUrl: storedCover.coverOriginalUrl,
+        coverContentHash: storedCover.coverContentHash,
+        coverCachedAt: now,
         createdByUid: auth.uid,
         createdAt: now,
         updatedAt: now,
@@ -1093,7 +1205,8 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
         publishedYear,
         pages: pageCount,
         description: appRecord.description,
-        coverStoragePath: "",
+        coverStoragePath: storedCover.coverStoragePath,
+        coverUrl: storedCover.coverUrl,
         searchableTitle: normalizeSearchText(title),
         searchableAuthor: normalizeSearchText(authors[0]!),
         isbn13: normalized?.isbn13 ?? "",
@@ -1107,7 +1220,9 @@ export const addBookToLibrary = withCallableErrors(async (request) => {
         metadataSourceUrl: appRecord.metadataSourceUrl,
         metadataFetchedAt: appRecord.metadataFetchedAt,
         coverSource: appRecord.coverSource,
-        coverUrl,
+        coverOriginalUrl: storedCover.coverOriginalUrl,
+        coverContentHash: storedCover.coverContentHash,
+        coverCachedAt: now,
         createdAt: now,
         updatedAt: now,
       });

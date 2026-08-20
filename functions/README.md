@@ -14,6 +14,26 @@ firebase deploy --project maktaba-2e21d
 
 No Admin SDK key is committed; deployment uses the operator's Firebase credentials.
 
+## Cover caching
+
+Trusted ISBN-provider covers are copied into Firebase Storage under
+`catalog-covers/`. Catalog documents store the stable Storage URL, object path,
+content hash, original provider URL, and cache timestamp. Clients can read
+catalog covers but cannot create, update, or delete them.
+
+Backfill existing catalog records with a dry run first:
+
+```bash
+cd functions
+npm run backfill:covers -- --project maktaba-2e21d \
+  --bucket maktaba-2e21d.firebasestorage.app --dry-run
+npm run backfill:covers -- --project maktaba-2e21d \
+  --bucket maktaba-2e21d.firebasestorage.app
+```
+
+The backfill is resumable and skips already cached covers. Use `--limit <n>`
+for a bounded run or `--force` to replace an existing cached cover.
+
 For an Android emulator backed by the local Firebase Emulator Suite:
 
 ```bash

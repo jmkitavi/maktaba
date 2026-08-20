@@ -10,7 +10,8 @@
     "clean": "rm -rf lib",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint . --max-warnings 0",
-    "test": "npm run build && node --test lib/test/*.test.js"
+    "test": "npm run build && node --test lib/test/*.test.js",
+    "backfill:covers": "npm run build && node lib/scripts/backfillCatalogCovers.js"
   },
   "dependencies": {
     "cheerio": "^1.1.2",

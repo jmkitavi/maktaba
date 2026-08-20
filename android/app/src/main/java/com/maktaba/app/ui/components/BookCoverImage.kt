@@ -7,9 +7,6 @@ import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
 import com.maktaba.app.data.Book
 
-private const val DEFAULT_BOOK_COVER_URL =
-    "https://images.isbndb.com/covers/18052683482712.jpg"
-
 @Composable
 fun BookCoverImage(
     book: Book,
@@ -18,7 +15,7 @@ fun BookCoverImage(
 ) {
     val fallback = painterResource(book.coverRes)
     AsyncImage(
-        model = book.coverUrl.ifBlank { DEFAULT_BOOK_COVER_URL },
+        model = book.coverUrl.takeIf { it.isNotBlank() },
         contentDescription = book.title,
         placeholder = fallback,
         error = fallback,
