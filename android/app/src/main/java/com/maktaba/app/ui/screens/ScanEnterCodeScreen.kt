@@ -2,6 +2,7 @@ package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,18 +43,30 @@ import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.R
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookHavenBottomNav
-import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.GreenButton
-import com.maktaba.app.ui.components.navigateToTab
 import com.maktaba.app.ui.theme.*
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ScanEnterCodeScreen(navController: NavHostController) {
     var code by remember { mutableStateOf("") }
     var errorText by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scanner = remember {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    Box(modifier = Modifier.fillMaxSize().background(CreamBackground).statusBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Top bar
             Row(
@@ -116,12 +131,22 @@ fun ScanEnterCodeScreen(navController: NavHostController) {
                         .background(
                             Brush.verticalGradient(listOf(Color(0xFF4A3A2C), Color(0xFF2E2318)))
                         )
+                        .clickable {
+                            scope.launch {
+                                runCatching { scanner.startScan().await().rawValue.orEmpty() }
+                                    .onSuccess { raw ->
+                                        code = raw.substringAfter("code=", raw).trim()
+                                        errorText = null
+                                    }
+                                    .onFailure { errorText = it.localizedMessage ?: "Could not scan this QR code." }
+                            }
+                        }
                 ) {
                     Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Filled.QrCode2, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(14.dp))
                         Text(
-                            "Position the QR code\nwithin the frame",
+                            "Tap to scan a QR code",
                             color = Color.White,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center,
@@ -197,24 +222,29 @@ fun ScanEnterCodeScreen(navController: NavHostController) {
                 Spacer(Modifier.height(14.dp))
                 GreenButton(
                     text = "Find Book",
+                    enabled = !loading && code.isNotBlank(),
+                    loading = loading,
                     leadingIcon = { Icon(Icons.Filled.MenuBook, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)) },
                     onClick = {
-                        // Demo tip code (BOK-7291) always resolves; any other code falls back
-                        // to the same demo book so the mock borrow flow is always reachable.
-                        val bookId = LibraryRepository.bookIdForCode(code.ifBlank { "BOK-7291" })
-                            ?: LibraryRepository.bookIdForCode("BOK-7291")
-                            ?: Routes.DEFAULT_BOOK_ID
+                        if (loading || code.isBlank()) return@GreenButton
+                        loading = true
                         errorText = null
-                        navController.navigate(Routes.ConfirmBorrow.createRoute(bookId))
+                        scope.launch {
+                            runCatching { LibraryRepository.resolveLoanCode(code) }
+                                .onSuccess {
+                                    navController.navigate(
+                                        Routes.ConfirmBorrow.createRoute(code.trim().uppercase())
+                                    )
+                                }
+                                .onFailure { errorText = it.localizedMessage ?: "That code is invalid or expired." }
+                            loading = false
+                        }
                     }
                 )
                 Spacer(Modifier.height(6.dp))
             }
 
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
+            Spacer(Modifier.navigationBarsPadding())
         }
     }
 }

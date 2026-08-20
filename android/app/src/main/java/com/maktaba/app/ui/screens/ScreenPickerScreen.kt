@@ -26,18 +26,8 @@ fun ScreenPickerScreen(navController: NavHostController) {
     ) {
         item { Text("Book Haven — Screen Picker") }
         items(Routes.all) { route ->
-            val target = when (route) {
-                is Routes.BookDetail -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.ShareLendingCode -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.LendBookConfig -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.ConfirmBorrow -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.ActiveLoan -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.ReturnConfirmation -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                is Routes.ReturnReminder -> route.createRoute(Routes.DEFAULT_BOOK_ID)
-                else -> route.route
-            }
             SecondaryButton(text = route.route) {
-                navController.navigate(target)
+                navController.navigate(route.route)
             }
         }
     }

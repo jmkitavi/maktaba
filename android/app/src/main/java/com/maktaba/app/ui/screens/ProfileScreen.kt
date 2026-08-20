@@ -9,13 +9,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Logout
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,27 +27,48 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.data.BookStatus
 import com.maktaba.app.data.LibraryRepository
-import com.maktaba.app.ui.components.BookHavenBottomNav
+import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.ui.components.BottomNavTab
+import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.ConfirmationDialog
 import com.maktaba.app.ui.theme.*
+import java.time.Instant
+import java.time.ZoneId
 
 private data class ProfileMenuItem(val label: String, val icon: ImageVector)
 
 /**
  * No design mockup exists for this screen (bottom nav was standardized to 4 tabs per
- * product decision) — simple, themed placeholder using mock account data so "Profile"
- * is a real, functional destination.
+ * product decision) — simple, themed account destination.
  */
 @Composable
 fun ProfileScreen(navController: NavHostController) {
+    var confirmLogout by remember { mutableStateOf(false) }
     val books = LibraryRepository.books
     val owned = books.count { it.status == BookStatus.OWNED }
     val lentOut = books.count { it.status == BookStatus.LENT_OUT }
     val borrowed = books.count { it.status == BookStatus.BORROWED }
+    val membershipYear = FirebaseSession.currentUser?.metadata?.creationTimestamp
+        ?.takeIf { it > 0 }
+        ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).year }
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    if (confirmLogout) {
+        ConfirmationDialog(
+            title = "Log out?",
+            message = "You’ll need to sign in again to access your library.",
+            confirmLabel = "Log Out",
+            onConfirm = { FirebaseSession.signOut() },
+            onDismiss = { confirmLogout = false }
+        )
+    }
+
+    MaktabaScaffold(
+        selectedTab = BottomNavTab.PROFILE,
+        onTabSelected = { navController.navigateToTab(it) }
+    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(CreamBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
             ScreenTopBar(title = "Profile")
             Column(
@@ -71,8 +89,12 @@ fun ProfileScreen(navController: NavHostController) {
                     }
                     Spacer(Modifier.width(16.dp))
                     Column {
-                        Text("Jamie Kitavi", color = InkBrown, fontFamily = SerifDisplay, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                        Text("Book Haven member since 2024", color = MutedText, fontSize = 13.sp)
+                        Text(FirebaseSession.currentUser?.displayName ?: FirebaseSession.currentUser?.email.orEmpty(), color = InkBrown, fontFamily = SerifDisplay, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text(
+                            membershipYear?.let { "Maktaba member since $it" } ?: "Maktaba member",
+                            color = MutedText,
+                            fontSize = 13.sp
+                        )
                     }
                 }
                 Spacer(Modifier.height(20.dp))
@@ -90,9 +112,6 @@ fun ProfileScreen(navController: NavHostController) {
                 Spacer(Modifier.height(20.dp))
                 val menuItems = listOf(
                     ProfileMenuItem("Notifications", Icons.Filled.Notifications),
-                    ProfileMenuItem("Settings", Icons.Outlined.Settings),
-                    ProfileMenuItem("Help & Support", Icons.Outlined.HelpOutline),
-                    ProfileMenuItem("About Book Haven", Icons.Outlined.Info),
                     ProfileMenuItem("Log Out", Icons.Outlined.Logout)
                 )
                 menuItems.forEach { item ->
@@ -103,6 +122,8 @@ fun ProfileScreen(navController: NavHostController) {
                             .clickable {
                                 if (item.label == "Notifications") {
                                     navController.navigate(com.maktaba.app.nav.Routes.Notifications.route)
+                                } else if (item.label == "Log Out") {
+                                    confirmLogout = true
                                 }
                             }
                             .padding(vertical = 14.dp),
@@ -116,12 +137,7 @@ fun ProfileScreen(navController: NavHostController) {
                 }
             }
         }
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BookHavenBottomNav(
-                selected = BottomNavTab.PROFILE,
-                onSelect = { navController.navigateToTab(it) }
-            )
-        }
+    }
     }
 }
 

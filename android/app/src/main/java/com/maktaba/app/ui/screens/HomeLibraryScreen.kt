@@ -1,6 +1,5 @@
 package com.maktaba.app.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,11 +9,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -40,8 +40,8 @@ import com.maktaba.app.data.BookStatus
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverCard
-import com.maktaba.app.ui.components.BookHavenBottomNav
 import com.maktaba.app.ui.components.BottomNavTab
+import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.navigateToTab
 import com.maktaba.app.ui.theme.*
 
@@ -58,13 +58,24 @@ private fun statusForFilter(filter: String): BookStatus? = when (filter) {
 fun HomeLibraryScreen(navController: NavHostController) {
     var selectedFilter by remember { mutableStateOf("All") }
     var showAddSheet by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val books = LibraryRepository.books
-    val filteredBooks = statusForFilter(selectedFilter)?.let { status ->
-        books.filter { it.status == status }
-    } ?: books
+    val normalizedQuery = searchQuery.trim().lowercase()
+    val filteredBooks = books.filter { book ->
+        val matchesStatus = statusForFilter(selectedFilter)?.let { book.status == it } ?: true
+        val matchesSearch = normalizedQuery.isEmpty() ||
+            book.title.lowercase().contains(normalizedQuery) ||
+            book.author.lowercase().contains(normalizedQuery) ||
+            book.genre.lowercase().contains(normalizedQuery)
+        matchesStatus && matchesSearch
+    }
     val unreadCount = LibraryRepository.unreadNotificationCount
 
-    Box(modifier = Modifier.fillMaxSize().background(CreamBackground)) {
+    MaktabaScaffold(
+        selectedTab = BottomNavTab.LIBRARY,
+        onTabSelected = { navController.navigateToTab(it) }
+    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize().padding(innerPadding).background(CreamBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header — illustration moved to top-left (no drawer nav exists in this app),
             // notification bell added top-right per product decision.
@@ -126,50 +137,64 @@ fun HomeLibraryScreen(navController: NavHostController) {
             ) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = MutedText, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text(
-                    "Search books, authors, genres...",
-                    color = MutedText,
-                    fontSize = 13.sp,
-                    modifier = Modifier.weight(1f)
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = InkBrown, fontSize = 13.sp),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    "Search books, authors, genres...",
+                                    color = MutedText,
+                                    fontSize = 13.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
                 )
-                Icon(Icons.Filled.Tune, contentDescription = "Filter", tint = MutedText, modifier = Modifier.size(20.dp))
-            }
+                }
 
-            Spacer(Modifier.height(14.dp))
-
-            // Filter chips — now actually filter the grid below by BookStatus.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                filters.forEach { filter ->
-                    val isSelected = filter == selectedFilter
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(30.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) ChipSelectedBg else ChipUnselectedBg)
-                            .clickable { selectedFilter = filter },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            filter,
-                            color = if (isSelected) ChipSelectedText else ChipUnselectedText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    filters.forEach { filter ->
+                        val isSelected = filter == selectedFilter
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(30.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) ChipSelectedBg else ChipUnselectedBg)
+                                .clickable { selectedFilter = filter },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                filter,
+                                color = if (isSelected) ChipSelectedText else ChipUnselectedText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
-            }
 
             Spacer(Modifier.height(14.dp))
 
             if (filteredBooks.isEmpty()) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No books in this filter yet.", color = MutedText, fontSize = 15.sp)
+                    Text(
+                        if (normalizedQuery.isEmpty()) "No books in this filter yet." else "No books match your search.",
+                        color = MutedText,
+                        fontSize = 15.sp
+                    )
                 }
             } else {
                 // Book grid
@@ -206,14 +231,7 @@ fun HomeLibraryScreen(navController: NavHostController) {
             Icon(Icons.Filled.Add, contentDescription = "Add Book", tint = Color.White, modifier = Modifier.size(26.dp))
         }
 
-        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
-            BookHavenBottomNav(
-                selected = BottomNavTab.LIBRARY,
-                onSelect = { navController.navigateToTab(it) }
-            )
-        }
-
-        AnimatedVisibility(visible = showAddSheet) {
+        androidx.compose.animation.AnimatedVisibility(visible = showAddSheet) {
             AddBookActionSheet(
                 onDismiss = { showAddSheet = false },
                 onAddBook = {
@@ -226,6 +244,7 @@ fun HomeLibraryScreen(navController: NavHostController) {
                 }
             )
         }
+    }
     }
 }
 

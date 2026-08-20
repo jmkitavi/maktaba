@@ -128,7 +128,7 @@ fun OnboardingScreen(navController: NavHostController) {
                     Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = Color.White)
                 },
                 onClick = {
-                    navController.navigate(Routes.HomeLibrary.route) { popUpTo(Routes.Onboarding.route) { inclusive = true } }
+                    navController.navigate(Routes.Auth.route)
                 }
             )
 
