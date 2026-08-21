@@ -67,7 +67,7 @@ import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.components.urgencyColor
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -343,7 +343,7 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
                             // underneath a button that looks tappable but is not.
                             Text(
                                 buildString {
-                                    append("Digital editions cannot be lent through Maktaba.")
+                                    append("Digital editions cannot be lent through Book Haven.")
                                     if (book.physicalEditionIsbn13.isNotBlank()) {
                                         append(" The physical edition is ISBN ")
                                         append(book.physicalEditionIsbn13)
@@ -421,7 +421,7 @@ private fun MetaItem(icon: ImageVector, label: String, value: String) {
 @Preview(showBackground = true, name = "Book detail")
 @Composable
 private fun BookDetailScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         BookDetailScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

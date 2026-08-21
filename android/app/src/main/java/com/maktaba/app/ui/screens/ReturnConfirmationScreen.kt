@@ -52,7 +52,7 @@ import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -236,7 +236,7 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String) {
 @Preview(showBackground = true, name = "Return")
 @Composable
 private fun ReturnConfirmationScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         ReturnConfirmationScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

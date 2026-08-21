@@ -56,7 +56,7 @@ import com.maktaba.app.ui.components.SecondaryButton
 import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.components.statusVisuals
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -280,7 +280,7 @@ private fun DetailRow(icon: ImageVector, label: String, value: String) {
 @Preview(showBackground = true, name = "Active loan")
 @Composable
 private fun ActiveLoanScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         ActiveLoanScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

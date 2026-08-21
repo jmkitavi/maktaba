@@ -52,7 +52,7 @@ import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -297,7 +297,7 @@ private fun IconDetail(
 @Preview(showBackground = true, name = "Confirm borrow")
 @Composable
 private fun ConfirmBorrowScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         ConfirmBorrowScreen(navController = rememberNavController(), inviteCode = "ABCD-1234")
     }
 }

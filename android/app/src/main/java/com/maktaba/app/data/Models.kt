@@ -218,7 +218,7 @@ object LibraryRepository {
     suspend fun startLending(bookId: String, borrowerName: String, dueAtMillis: Long): PendingLoanInvite {
         val book = requireNotNull(bookById(bookId)) { "This book is no longer available." }
         require(book.format != BookFormat.DIGITAL) {
-            "Digital editions can’t be lent through Maktaba."
+            "Digital editions can’t be lent through Book Haven."
         }
         val result = callFunction(
             "createLoanInvite",

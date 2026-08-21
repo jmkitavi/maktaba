@@ -75,7 +75,7 @@ import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.EmptyState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.navigateToTab
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -409,7 +409,7 @@ fun HomeLibraryScreen(navController: NavHostController) {
 @Preview(showBackground = true, name = "My library")
 @Composable
 private fun HomeLibraryScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         HomeLibraryScreen(navController = rememberNavController())
     }
 }

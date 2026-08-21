@@ -74,7 +74,7 @@ private fun materialSchemeFrom(colors: MaktabaColors) = if (colors.isDark) {
 }
 
 @Composable
-fun MaktabaAppTheme(
+fun BookHavenTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {

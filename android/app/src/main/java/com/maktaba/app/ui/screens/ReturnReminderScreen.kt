@@ -48,7 +48,7 @@ import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.UnavailableState
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.components.urgencyColor
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -236,7 +236,7 @@ fun ReturnReminderScreen(navController: NavHostController, bookId: String) {
 @Preview(showBackground = true, name = "Return reminder")
 @Composable
 private fun ReturnReminderScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         ReturnReminderScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

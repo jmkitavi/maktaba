@@ -48,7 +48,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
@@ -256,7 +256,7 @@ fun AuthScreen() {
 
             Spacer(Modifier.height(spacing.sm))
             Text(
-                "By continuing you agree to Maktaba's terms and privacy policy.",
+                "By continuing you agree to Book Haven's terms and privacy policy.",
                 color = colors.inkMuted,
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center
@@ -355,5 +355,5 @@ private fun NoticeBanner(notice: AuthNotice) {
 @Preview(showBackground = true, name = "Auth")
 @Composable
 private fun AuthScreenPreview() {
-    MaktabaAppTheme { AuthScreen() }
+    BookHavenTheme { AuthScreen() }
 }

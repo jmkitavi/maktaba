@@ -49,7 +49,7 @@ import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.navigateToTab
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.MinTouchTarget
 import java.time.Instant
@@ -117,7 +117,7 @@ fun ProfileScreen(navController: NavHostController) {
                         modifier = Modifier.semantics { heading() }
                     )
                     Text(
-                        membershipYear?.let { "Maktaba member since $it" } ?: "Maktaba member",
+                        membershipYear?.let { "Book Haven member since $it" } ?: "Book Haven member",
                         color = colors.inkMuted,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -202,5 +202,5 @@ private fun ProfileMenuRow(label: String, icon: ImageVector, onClick: () -> Unit
 @Preview(showBackground = true, name = "Profile")
 @Composable
 private fun ProfileScreenPreview() {
-    MaktabaAppTheme { ProfileScreen(navController = rememberNavController()) }
+    BookHavenTheme { ProfileScreen(navController = rememberNavController()) }
 }

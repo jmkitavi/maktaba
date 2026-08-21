@@ -59,7 +59,7 @@ import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.SecondaryButton
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
@@ -260,7 +260,7 @@ fun AddBookScreen(navController: NavHostController) {
                     "From ${
                         when (source) {
                             "isbnsearch" -> "ISBNsearch"
-                            "firebase" -> "the Maktaba catalogue"
+                            "firebase" -> "the Book Haven catalogue"
                             else -> "your own entry"
                         }
                     }",
@@ -271,7 +271,7 @@ fun AddBookScreen(navController: NavHostController) {
                     Spacer(Modifier.height(spacing.xs))
                     Text(
                         buildString {
-                            append("This is a digital edition, so it cannot be lent through Maktaba.")
+                            append("This is a digital edition, so it cannot be lent through Book Haven.")
                             if (physicalEditionIsbn13.isNotBlank()) {
                                 append(" The physical edition is ISBN ")
                                 append(physicalEditionIsbn13)
@@ -433,5 +433,5 @@ private fun BookField(
 @Preview(showBackground = true, name = "Add a book")
 @Composable
 private fun AddBookScreenPreview() {
-    MaktabaAppTheme { AddBookScreen(navController = rememberNavController()) }
+    BookHavenTheme { AddBookScreen(navController = rememberNavController()) }
 }

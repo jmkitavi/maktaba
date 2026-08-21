@@ -42,7 +42,7 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.R
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
 
@@ -71,7 +71,7 @@ private val slides = listOf(
     OnboardingSlide(
         illustration = R.drawable.illus_return_confirmation,
         title = "Get it back\non time",
-        body = "Maktaba tracks every loan and nudges both of you before the date lapses."
+        body = "Book Haven tracks every loan and nudges both of you before the date lapses."
     )
 )
 
@@ -106,7 +106,7 @@ fun OnboardingScreen(navController: NavHostController) {
             )
             Spacer(Modifier.height(spacing.xxs))
             Text(
-                "Maktaba",
+                "Book Haven",
                 style = MaterialTheme.typography.displaySmall,
                 color = colors.primary
             )
@@ -215,7 +215,7 @@ fun OnboardingScreen(navController: NavHostController) {
 @Preview(showBackground = true, name = "Onboarding")
 @Composable
 private fun OnboardingScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         OnboardingScreen(navController = rememberNavController())
     }
 }
