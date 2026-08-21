@@ -41,6 +41,7 @@ import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.GreenButton
 import com.maktaba.app.ui.components.LoanProgressTrack
 import com.maktaba.app.ui.components.MaktabaCard
+import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.StatusPill
@@ -61,6 +62,13 @@ fun ReturnReminderScreen(navController: NavHostController, bookId: String) {
 
     val book = LibraryRepository.bookById(bookId)
     val loan = LibraryRepository.activeLoanFor(bookId)
+    // Do not claim the loan is missing while its snapshot is still in flight.
+    if ((book == null || loan == null) &&
+        (!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans)
+    ) {
+        LoadingState("Loading this reminder")
+        return
+    }
     if (book == null || loan == null) {
         UnavailableState(
             title = "Reminder unavailable",

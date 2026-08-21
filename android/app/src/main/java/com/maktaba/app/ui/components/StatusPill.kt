@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ScheduleSend
@@ -62,6 +63,17 @@ fun statusVisuals(
             StatusVisuals("Borrowed", Icons.Filled.CallReceived, colors.accent, colors.chipUnselected)
     }
 }
+
+/**
+ * For a catalogue entry the user does not own. `Book.status` defaults to OWNED for
+ * catalogue rows, which made a book you have never owned announce "On your shelf".
+ */
+fun catalogueVisuals(colors: MaktabaColors) = StatusVisuals(
+    label = "In the catalogue",
+    icon = Icons.AutoMirrored.Filled.MenuBook,
+    content = colors.inkSoft,
+    container = colors.surfaceAlt
+)
 
 @Composable
 fun StatusPill(

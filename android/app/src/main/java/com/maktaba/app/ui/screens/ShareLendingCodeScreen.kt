@@ -93,8 +93,17 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
         }
     }
 
+    // Expiry has to be evaluated against a clock that advances. Reading Instant.now()
+    // once at composition meant a code that lapsed while the screen was open stayed
+    // copyable and shareable until the user navigated away.
+    val now by produceState(initialValue = Instant.now()) {
+        while (true) {
+            value = Instant.now()
+            delay(1_000)
+        }
+    }
     val readyInvite = invite?.takeIf {
-        it.status == "pending" && (it.expiresAt == null || it.expiresAt.isAfter(Instant.now()))
+        it.status == "pending" && (it.expiresAt == null || it.expiresAt.isAfter(now))
     }
     val book = readyInvite?.let { LibraryRepository.bookById(it.copyId) }
 
@@ -179,7 +188,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
             // The expiry was enforced but never shown, so it always arrived as a surprise.
             readyInvite.expiresAt?.let { expiry ->
                 Spacer(Modifier.height(spacing.sm))
-                ExpiryCountdown(expiresAt = expiry)
+                ExpiryCountdown(expiresAt = expiry, now = now)
             }
 
             Spacer(Modifier.height(spacing.md))
@@ -289,15 +298,9 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
 }
 
 @Composable
-private fun ExpiryCountdown(expiresAt: Instant) {
+private fun ExpiryCountdown(expiresAt: Instant, now: Instant) {
     val colors = MaktabaTheme.colors
-    val remaining by produceState(initialValue = Duration.between(Instant.now(), expiresAt), expiresAt) {
-        while (true) {
-            value = Duration.between(Instant.now(), expiresAt)
-            delay(1_000)
-        }
-    }
-    val seconds = remaining.seconds.coerceAtLeast(0)
+    val seconds = Duration.between(now, expiresAt).seconds.coerceAtLeast(0)
     val label = when {
         seconds >= 3600 -> "${seconds / 3600} h ${(seconds % 3600) / 60} min"
         seconds >= 60 -> "${seconds / 60} min ${seconds % 60} s"

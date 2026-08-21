@@ -29,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.LoanInviteCode
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.screens.*
 import com.maktaba.app.ui.theme.BookHavenTheme
@@ -50,7 +51,10 @@ class MainActivity : ComponentActivity() {
         // Real launch starts at Onboarding. A notification, a maktaba:// link, or the debug
         // `--es route <route>` extra selects a deeper destination instead - which is layered
         // *on top of* the library rather than replacing it, so Back always has somewhere to go.
-        val deepRoute = intent?.getStringExtra("route")
+        // One consume-once channel for every entry point. Holding the launch route
+        // separately meant it re-fired whenever the nav host was recreated - including
+        // after signing out and back in, possibly as a different account.
+        pendingRoute = intent?.getStringExtra("route")
             ?: routeForLink(intent?.data)
             ?: routeForNotification(
                 intent?.getStringExtra("type"),
@@ -62,7 +66,6 @@ class MainActivity : ComponentActivity() {
             BookHavenTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MaktabaApp(
-                        deepRoute = deepRoute,
                         pendingRoute = pendingRoute,
                         onPendingRouteHandled = { pendingRoute = null }
                     )
@@ -87,8 +90,11 @@ class MainActivity : ComponentActivity() {
 internal fun routeForLink(uri: Uri?): String? {
     val data = uri ?: return null
     if (data.scheme != "maktaba" || data.host != "loan") return null
-    val code = data.getQueryParameter("code")?.trim()?.uppercase()
-    return code?.takeIf { it.isNotBlank() }?.let(Routes.ConfirmBorrow::createRoute)
+    // An externally supplied code ends up in a navigation route, so validate it against
+    // the real code format rather than merely checking it is non-blank. Anything that is
+    // not AAAA-9999 - path separators, injections, junk - is rejected here.
+    val code = LoanInviteCode.parse(data.getQueryParameter("code")) ?: return null
+    return Routes.ConfirmBorrow.createRoute(code.value)
 }
 
 internal fun routeForNotification(
@@ -111,7 +117,6 @@ internal fun routeForNotification(
 
 @Composable
 fun MaktabaApp(
-    deepRoute: String?,
     pendingRoute: String?,
     onPendingRouteHandled: () -> Unit
 ) {
@@ -132,7 +137,6 @@ fun MaktabaApp(
             onDispose { LibraryRepository.stop() }
         }
         MaktabaNavHost(
-            deepRoute = deepRoute,
             pendingRoute = pendingRoute,
             onPendingRouteHandled = onPendingRouteHandled
         )
@@ -150,7 +154,6 @@ private fun SignedOutNavHost() {
 
 @Composable
 fun MaktabaNavHost(
-    deepRoute: String?,
     pendingRoute: String?,
     onPendingRouteHandled: () -> Unit
 ) {
@@ -161,18 +164,12 @@ fun MaktabaNavHost(
 
     // The library is always the root of the stack, so Back from a notification-launched
     // screen lands on the shelf instead of dropping the user out of the app.
-    var handledDeepRoute by remember { mutableStateOf(false) }
-    LaunchedEffect(deepRoute) {
-        if (!handledDeepRoute && deepRoute != null && deepRoute != Routes.HomeLibrary.route) {
-            navController.navigate(deepRoute) { launchSingleTop = true }
-        }
-        handledDeepRoute = true
-    }
     LaunchedEffect(pendingRoute) {
-        pendingRoute?.let { route ->
+        val route = pendingRoute ?: return@LaunchedEffect
+        if (route != Routes.HomeLibrary.route) {
             navController.navigate(route) { launchSingleTop = true }
-            onPendingRouteHandled()
         }
+        onPendingRouteHandled()
     }
 
     NavHost(navController = navController, startDestination = Routes.HomeLibrary.route) {

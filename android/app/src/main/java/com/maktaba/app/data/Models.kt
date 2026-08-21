@@ -94,13 +94,29 @@ object LibraryRepository {
     var hasLoadedLibrary by mutableStateOf(false)
         private set
 
+    /**
+     * Loans arrive from their own pair of listeners, so a screen that resolves a loan can
+     * be looking at an empty list long after [hasLoadedLibrary] flips. Without this, loan
+     * screens rendered "Loan unavailable" for the moment before the snapshot landed.
+     */
+    var hasLoadedLoans by mutableStateOf(false)
+        private set
+
     private var catalogLoaded = false
     private var copiesLoaded = false
+    private val loanFieldsLoaded = mutableSetOf<String>()
 
     private fun markLoaded(catalog: Boolean = false, copies: Boolean = false) {
         if (catalog) catalogLoaded = true
         if (copies) copiesLoaded = true
         if (catalogLoaded && copiesLoaded) hasLoadedLibrary = true
+    }
+
+    private fun markLoansLoaded(participantField: String) {
+        loanFieldsLoaded += participantField
+        if (loanFieldsLoaded.containsAll(listOf("lenderUid", "borrowerUid"))) {
+            hasLoadedLoans = true
+        }
     }
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
@@ -146,7 +162,9 @@ object LibraryRepository {
         clearObservableState()
         catalogLoaded = false
         copiesLoaded = false
+        loanFieldsLoaded.clear()
         hasLoadedLibrary = false
+        hasLoadedLoans = false
         currentUid = null
     }
 
@@ -383,10 +401,15 @@ object LibraryRepository {
      * suggestion chips so the same name is not retyped - and misspelled - every loan.
      */
     val recentBorrowerNames: List<String>
-        get() = activeLoans
-            .filter { it.isLender }
-            .sortedByDescending { it.acceptedAt }
-            .mapNotNull { it.counterpartyName.trim().takeIf(String::isNotBlank) }
+        get() = lenderLoans.values
+            // Every loan this user has ever made, not just the open ones - the people you
+            // lend to most are precisely the ones whose loans have already been returned.
+            .sortedByDescending { loan ->
+                (loan["acceptedAt"] as? Timestamp)?.toDate()?.time
+                    ?: (loan["createdAt"] as? Timestamp)?.toDate()?.time
+                    ?: 0L
+            }
+            .mapNotNull { (it["borrowerDisplayName"] as? String)?.trim()?.takeIf(String::isNotBlank) }
             .filterNot { it.equals("a friend", ignoreCase = true) }
             .distinct()
             .take(4)
@@ -408,10 +431,18 @@ object LibraryRepository {
      * Deletes the user's copy of a book. Catalogue metadata is shared between users and
      * server-owned, so this removes the shelf entry only - it never edits `catalogBooks`.
      */
+    /** True while any loan or un-redeemed invite still references this copy. */
+    fun hasOpenLoanActivity(bookId: String): Boolean =
+        activeLoanFor(bookId) != null ||
+            pendingInvites.values.any { it.copyId == bookId && it.status == "pending" }
+
     suspend fun removeBook(bookId: String) {
         requireNotNull(currentUid) { "Sign in before changing your library." }
-        require(activeLoanFor(bookId) == null) {
-            "Finish the active loan before removing this book."
+        // Deleting a copy that a loan or a pending invite still points at leaves those
+        // records dangling. The client guard covers what the client can see; the
+        // authoritative check belongs in a Cloud Function alongside a cascade.
+        require(!hasOpenLoanActivity(bookId)) {
+            "Finish or cancel the loan on this book before removing it."
         }
         firestore.collection("userBooks").document(bookId).delete().await()
     }
@@ -462,6 +493,7 @@ object LibraryRepository {
                 snapshot ?: return@addSnapshotListener
                 target.clear()
                 snapshot.documents.forEach { target[it.id] = it.data.orEmpty() }
+                markLoansLoaded(participantField)
                 loans.clear()
                 loans.putAll(lenderLoans)
                 loans.putAll(borrowerLoans)

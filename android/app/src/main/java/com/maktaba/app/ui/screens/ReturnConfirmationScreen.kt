@@ -47,6 +47,7 @@ import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.ConfirmationDialog
 import com.maktaba.app.ui.components.MaktabaCard
+import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
@@ -70,6 +71,13 @@ fun ReturnConfirmationScreen(navController: NavHostController, bookId: String) {
 
     val book = LibraryRepository.bookById(bookId)
     val loan = LibraryRepository.activeLoanFor(bookId)
+    // Do not claim the loan is missing while its snapshot is still in flight.
+    if ((book == null || loan == null) &&
+        (!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans)
+    ) {
+        LoadingState("Loading this return")
+        return
+    }
     if (book == null || loan == null) {
         UnavailableState(
             title = "Loan unavailable",
