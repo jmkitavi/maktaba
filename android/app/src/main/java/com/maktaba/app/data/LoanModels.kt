@@ -72,9 +72,29 @@ data class PendingLoanInvite(
     val copyId: String,
     val code: LoanInviteCode,
     val dueAt: Instant?,
-    val expiresAt: Instant?,
+    val expiresAt: Instant,
     val status: String = "pending"
 )
+
+internal fun pendingLoanInviteFromCreateResult(
+    copyId: String,
+    result: Map<String, Any?>
+): PendingLoanInvite {
+    val code = LoanInviteCode.parse(result["inviteCode"] as? String)
+        ?: error("Firebase returned an invalid invitation code.")
+    val loanId = result["loanId"] as? String ?: error("Firebase did not return a loan ID.")
+    val dueAtMillis = (result["dueAtMillis"] as? Number)?.toLong()
+        ?: error("Firebase did not return the loan due date.")
+    val expiresAtMillis = (result["expiresAtMillis"] as? Number)?.toLong()
+        ?: error("Firebase did not return the invitation expiry.")
+    return PendingLoanInvite(
+        id = loanId,
+        copyId = copyId,
+        code = code,
+        dueAt = Instant.ofEpochMilli(dueAtMillis),
+        expiresAt = Instant.ofEpochMilli(expiresAtMillis)
+    )
+}
 
 sealed interface LoadState<out T> {
     data object Loading : LoadState<Nothing>

@@ -54,20 +54,18 @@ class MainActivity : ComponentActivity() {
         // One consume-once channel for every entry point. Holding the launch route
         // separately meant it re-fired whenever the nav host was recreated - including
         // after signing out and back in, possibly as a different account.
-        pendingRoute = intent?.getStringExtra("route")
-            ?: routeForLink(intent?.data)
-            ?: routeForNotification(
-                intent?.getStringExtra("type"),
-                intent?.getStringExtra("copyId"),
-                intent?.getStringExtra("catalogBookId")
-            )
+        pendingRoute = selectPendingRoute(
+            hasSavedState = savedInstanceState?.containsKey(PENDING_ROUTE_KEY) == true,
+            restoredRoute = savedInstanceState?.getString(PENDING_ROUTE_KEY),
+            launchRoute = routeFromIntent(intent)
+        )
 
         setContent {
             BookHavenTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MaktabaApp(
                         pendingRoute = pendingRoute,
-                        onPendingRouteHandled = { pendingRoute = null }
+                        onPendingRouteHandled = ::consumePendingRoute
                     )
                 }
             }
@@ -77,12 +75,70 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingRoute = routeForLink(intent.data)
+        pendingRoute = routeFromIntent(intent)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(PENDING_ROUTE_KEY, pendingRoute)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun consumePendingRoute() {
+        pendingRoute = null
+        intent?.apply {
+            removeExtra("route")
+            removeExtra("type")
+            removeExtra("copyId")
+            removeExtra("catalogBookId")
+            data = null
+        }
+    }
+
+    private fun routeFromIntent(intent: Intent?): String? {
+        return intent?.getStringExtra("route")?.let(::validatedDebugRoute)
+            ?: routeForLink(intent?.data)
             ?: routeForNotification(
-                intent.getStringExtra("type"),
-                intent.getStringExtra("copyId"),
-                intent.getStringExtra("catalogBookId")
+                intent?.getStringExtra("type"),
+                intent?.getStringExtra("copyId"),
+                intent?.getStringExtra("catalogBookId")
             )
+    }
+
+    private companion object {
+        const val PENDING_ROUTE_KEY = "pending_route"
+    }
+}
+
+internal fun selectPendingRoute(
+    hasSavedState: Boolean,
+    restoredRoute: String?,
+    launchRoute: String?
+): String? = if (hasSavedState) restoredRoute else launchRoute
+
+internal fun validatedDebugRoute(route: String): String? {
+    if (!BuildConfig.DEBUG) return null
+    val staticRoutes = setOf(
+        Routes.ScreenPicker.route,
+        Routes.HomeLibrary.route,
+        Routes.Loans.route,
+        Routes.Wishlist.route,
+        Routes.Profile.route,
+        Routes.AddBook.route,
+        Routes.Notifications.route,
+        Routes.ScanEnterCode.route,
+    )
+    if (route in staticRoutes) return route
+    val idPattern = "[A-Za-z0-9_-]{6,128}"
+    return route.takeIf {
+        it.matches(Regex("book_detail/$idPattern")) ||
+            it.matches(Regex("share_lending_code/$idPattern")) ||
+            it.matches(Regex("lend_book_config/$idPattern")) ||
+            it.matches(Regex("active_loan/$idPattern")) ||
+            it.matches(Regex("return_confirmation/$idPattern")) ||
+            it.matches(Regex("return_reminder/$idPattern")) ||
+            it.removePrefix("confirm_borrow/").takeIf { code ->
+                LoanInviteCode.parse(code) != null
+            } != null
     }
 }
 

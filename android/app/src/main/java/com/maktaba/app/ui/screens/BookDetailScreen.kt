@@ -132,7 +132,6 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
                             navController.popBackStack()
                         }
                         .onFailure {
-                            confirmRemove = false
                             snackbarHostState.showSnackbar(
                                 it.localizedMessage ?: "We could not remove this book."
                             )
@@ -197,7 +196,7 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
                                             tint = colors.danger
                                         )
                                     },
-                                    enabled = loan == null,
+                                    enabled = !LibraryRepository.hasOpenLoanActivity(book.id),
                                     onClick = {
                                         menuOpen = false
                                         confirmRemove = true

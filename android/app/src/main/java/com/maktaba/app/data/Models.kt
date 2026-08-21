@@ -246,19 +246,10 @@ object LibraryRepository {
                 "borrowerDisplayName" to borrowerName
             )
         )
-        val code = LoanInviteCode.parse(result["inviteCode"] as? String)
-            ?: error("Firebase returned an invalid invitation code.")
-        val loanId = result["loanId"] as? String ?: error("Firebase did not return a loan ID.")
-        val invite = PendingLoanInvite(
-            id = loanId,
-            copyId = bookId,
-            code = code,
-            dueAt = Instant.ofEpochMilli(dueAtMillis),
-            expiresAt = null
-        )
-        lendingCodes[code.value] = bookId
-        loanIdsByBook[bookId] = loanId
-        pendingInvites[loanId] = invite
+        val invite = pendingLoanInviteFromCreateResult(bookId, result)
+        lendingCodes[invite.code.value] = bookId
+        loanIdsByBook[bookId] = invite.id
+        pendingInvites[invite.id] = invite
         return invite
     }
 
@@ -275,7 +266,9 @@ object LibraryRepository {
             copyId = snapshot.getString("copyId").orEmpty(),
             code = code,
             dueAt = snapshot.getTimestamp("dueDate")?.toDate()?.toInstant(),
-            expiresAt = snapshot.getTimestamp("expiresAt")?.toDate()?.toInstant(),
+            expiresAt = requireNotNull(snapshot.getTimestamp("expiresAt")) {
+                "The lending invitation is missing its expiry."
+            }.toDate().toInstant(),
             status = status
         )
         require(invite.copyId.isNotBlank()) { "The lending invitation is missing its book." }
@@ -434,17 +427,15 @@ object LibraryRepository {
     /** True while any loan or un-redeemed invite still references this copy. */
     fun hasOpenLoanActivity(bookId: String): Boolean =
         activeLoanFor(bookId) != null ||
-            pendingInvites.values.any { it.copyId == bookId && it.status == "pending" }
+            pendingInvites.values.any {
+                it.copyId == bookId &&
+                    it.status == "pending" &&
+                    it.expiresAt.isAfter(Instant.now())
+            }
 
     suspend fun removeBook(bookId: String) {
         requireNotNull(currentUid) { "Sign in before changing your library." }
-        // Deleting a copy that a loan or a pending invite still points at leaves those
-        // records dangling. The client guard covers what the client can see; the
-        // authoritative check belongs in a Cloud Function alongside a cascade.
-        require(!hasOpenLoanActivity(bookId)) {
-            "Finish or cancel the loan on this book before removing it."
-        }
-        firestore.collection("userBooks").document(bookId).delete().await()
+        callFunction("removeBookFromLibrary", mapOf("copyId" to bookId))
     }
 
     private fun listenToCatalog() {

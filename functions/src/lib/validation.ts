@@ -31,6 +31,10 @@ export interface InviteIdInput {
   inviteId: string;
 }
 
+export interface CopyIdInput {
+  copyId: string;
+}
+
 export interface UserProfileInput {
   displayName?: string;
 }
@@ -224,6 +228,13 @@ export function validateInviteIdInput(data: unknown): InviteIdInput {
   const record = asRecord(data);
   return {
     inviteId: parseRequiredId(record["inviteId"], "inviteId"),
+  };
+}
+
+export function validateCopyIdInput(data: unknown): CopyIdInput {
+  const record = asRecord(data);
+  return {
+    copyId: parseCopyId(record["copyId"]),
   };
 }
 
