@@ -2,6 +2,9 @@ package com.maktaba.app.data
 
 import android.util.Log
 import androidx.annotation.DrawableRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import com.maktaba.app.BuildConfig
@@ -83,6 +86,23 @@ object LibraryRepository {
     private val loanIdsByBook: androidx.compose.runtime.snapshots.SnapshotStateMap<String, String> =
         androidx.compose.runtime.mutableStateMapOf()
 
+    /**
+     * False until the first catalogue *and* first user-copies snapshot have arrived.
+     * Without this the library screen cannot tell "you own nothing" from "Firestore has
+     * not answered yet", and told every returning user their shelf was empty on launch.
+     */
+    var hasLoadedLibrary by mutableStateOf(false)
+        private set
+
+    private var catalogLoaded = false
+    private var copiesLoaded = false
+
+    private fun markLoaded(catalog: Boolean = false, copies: Boolean = false) {
+        if (catalog) catalogLoaded = true
+        if (copies) copiesLoaded = true
+        if (catalogLoaded && copiesLoaded) hasLoadedLibrary = true
+    }
+
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val functions by lazy { FirebaseFunctions.getInstance() }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -124,6 +144,9 @@ object LibraryRepository {
         pendingBorrowLoans.clear()
         pendingBorrowBooks.clear()
         clearObservableState()
+        catalogLoaded = false
+        copiesLoaded = false
+        hasLoadedLibrary = false
         currentUid = null
     }
 
@@ -353,6 +376,46 @@ object LibraryRepository {
         firestore.collection("users").document(uid).collection("wishlist").document(catalogId).delete().await()
     }
 
+    fun isOnWishlist(catalogId: String): Boolean = wishlistCatalogIds.contains(catalogId)
+
+    /**
+     * People this user is currently lending to, most recent first. Used to offer
+     * suggestion chips so the same name is not retyped - and misspelled - every loan.
+     */
+    val recentBorrowerNames: List<String>
+        get() = activeLoans
+            .filter { it.isLender }
+            .sortedByDescending { it.acceptedAt }
+            .mapNotNull { it.counterpartyName.trim().takeIf(String::isNotBlank) }
+            .filterNot { it.equals("a friend", ignoreCase = true) }
+            .distinct()
+            .take(4)
+
+    /** Catalogue entries the signed-in user has starred, resolved to displayable books. */
+    val wishlistBooks: List<Book>
+        get() = wishlistCatalogIds.mapNotNull { id -> maktabaCollection.find { it.catalogId == id } }
+
+    /** Catalogue entries the user neither owns nor has already wishlisted. */
+    val discoverableBooks: List<Book>
+        get() {
+            val ownedCatalogIds = books.map { it.catalogId }.toSet()
+            return maktabaCollection.filter {
+                it.catalogId !in ownedCatalogIds && it.catalogId !in wishlistCatalogIds
+            }
+        }
+
+    /**
+     * Deletes the user's copy of a book. Catalogue metadata is shared between users and
+     * server-owned, so this removes the shelf entry only - it never edits `catalogBooks`.
+     */
+    suspend fun removeBook(bookId: String) {
+        requireNotNull(currentUid) { "Sign in before changing your library." }
+        require(activeLoanFor(bookId) == null) {
+            "Finish the active loan before removing this book."
+        }
+        firestore.collection("userBooks").document(bookId).delete().await()
+    }
+
     private fun listenToCatalog() {
         listeners += firestore.collection("catalogBooks").addSnapshotListener { snapshot, error ->
             if (error != null) {
@@ -363,6 +426,7 @@ object LibraryRepository {
             catalog.clear()
             snapshot.documents.forEach { catalog[it.id] = it.data.orEmpty() }
             Log.d(TAG, "Catalog snapshot: ${catalog.size} books")
+            markLoaded(catalog = true)
             rebuildMaktabaCollection()
             rebuildBooksAndLoans()
         }
@@ -379,6 +443,7 @@ object LibraryRepository {
                 copies.clear()
                 snapshot.documents.forEach { copies[it.id] = it.data.orEmpty() }
                 Log.d(TAG, "User books snapshot: ${copies.size} copies for $uid")
+                markLoaded(copies = true)
                 rebuildBooksAndLoans()
             }
     }

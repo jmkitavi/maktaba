@@ -1,11 +1,11 @@
 package com.maktaba.app.ui.components
 
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import com.maktaba.app.ui.theme.InkBrown
+import com.maktaba.app.ui.theme.MaktabaTheme
 
 @Composable
 fun ConfirmationDialog(
@@ -17,21 +17,26 @@ fun ConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val colors = MaktabaTheme.colors
     AlertDialog(
         onDismissRequest = { if (!loading) onDismiss() },
-        title = { Text(title, color = InkBrown) },
-        text = { Text(message, color = InkBrown) },
+        containerColor = colors.surface,
+        titleContentColor = colors.ink,
+        textContentColor = colors.inkSoft,
+        title = { Text(title, style = MaterialTheme.typography.titleLarge) },
+        text = { Text(message, style = MaterialTheme.typography.bodyMedium) },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !loading) {
                 Text(
-                    if (loading) "Please wait..." else confirmLabel,
-                    color = if (destructive) Color(0xFFB3261E) else InkBrown
+                    if (loading) "Working..." else confirmLabel,
+                    color = if (destructive) colors.danger else colors.primary,
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !loading) {
-                Text("Cancel", color = InkBrown)
+                Text("Cancel", color = colors.inkSoft, style = MaterialTheme.typography.labelLarge)
             }
         }
     )

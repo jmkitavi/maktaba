@@ -2,14 +2,13 @@ package com.maktaba.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.content.pm.PackageManager
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -20,17 +19,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.maktaba.app.nav.Routes
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.screens.*
-import com.maktaba.app.ui.theme.BookHavenTheme
+import com.maktaba.app.ui.theme.MaktabaAppTheme
 
 class MainActivity : ComponentActivity() {
     private var pendingRoute by mutableStateOf<String?>(null)
@@ -40,25 +41,28 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
-        // Real launch (tapping the app icon) starts at Onboarding.
-        // Debug convenience: `adb shell am start -n com.jmkitavi.maktaba/com.maktaba.app.MainActivity --es route <route>`
-        // jumps straight to a given screen for screenshotting, bypassing manual navigation.
-        val startRoute = intent?.getStringExtra("route")
+
+        // Real launch starts at Onboarding. A notification, a maktaba:// link, or the debug
+        // `--es route <route>` extra selects a deeper destination instead - which is layered
+        // *on top of* the library rather than replacing it, so Back always has somewhere to go.
+        val deepRoute = intent?.getStringExtra("route")
+            ?: routeForLink(intent?.data)
             ?: routeForNotification(
                 intent?.getStringExtra("type"),
                 intent?.getStringExtra("copyId"),
                 intent?.getStringExtra("catalogBookId")
             )
-            ?: Routes.Onboarding.route
+
         setContent {
-            BookHavenTheme {
+            MaktabaAppTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    BookHavenApp(
-                        startRoute = startRoute,
+                    MaktabaApp(
+                        deepRoute = deepRoute,
                         pendingRoute = pendingRoute,
                         onPendingRouteHandled = { pendingRoute = null }
                     )
@@ -70,15 +74,28 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingRoute = routeForNotification(
-            intent.getStringExtra("type"),
-            intent.getStringExtra("copyId"),
-            intent.getStringExtra("catalogBookId")
-        )
+        pendingRoute = routeForLink(intent.data)
+            ?: routeForNotification(
+                intent.getStringExtra("type"),
+                intent.getStringExtra("copyId"),
+                intent.getStringExtra("catalogBookId")
+            )
     }
 }
 
-private fun routeForNotification(type: String?, copyId: String?, catalogBookId: String?): String? {
+/** Handles `maktaba://loan?code=ABCD-1234`, which is what the lending QR encodes. */
+internal fun routeForLink(uri: Uri?): String? {
+    val data = uri ?: return null
+    if (data.scheme != "maktaba" || data.host != "loan") return null
+    val code = data.getQueryParameter("code")?.trim()?.uppercase()
+    return code?.takeIf { it.isNotBlank() }?.let(Routes.ConfirmBorrow::createRoute)
+}
+
+internal fun routeForNotification(
+    type: String?,
+    copyId: String?,
+    catalogBookId: String?
+): String? {
     val copyRouteId = copyId?.takeIf { it.isNotBlank() } ?: return null
     return when (type) {
         "loan_invite_accepted", "loan_reminder" -> Routes.ActiveLoan.createRoute(copyRouteId)
@@ -93,26 +110,29 @@ private fun routeForNotification(type: String?, copyId: String?, catalogBookId: 
 }
 
 @Composable
-fun BookHavenApp(
-    startRoute: String,
+fun MaktabaApp(
+    deepRoute: String?,
     pendingRoute: String?,
     onPendingRouteHandled: () -> Unit
 ) {
     var user by remember { mutableStateOf(FirebaseSession.currentUser) }
     DisposableEffect(Unit) {
-        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener { user = it.currentUser }
+        val listener = com.google.firebase.auth.FirebaseAuth.AuthStateListener {
+            user = it.currentUser
+        }
         FirebaseSession.addAuthStateListener(listener)
         onDispose { FirebaseSession.removeAuthStateListener(listener) }
     }
+
     if (user == null) {
-        SignedOutNavHost(startRoute = if (startRoute == Routes.Auth.route) startRoute else Routes.Onboarding.route)
+        SignedOutNavHost()
     } else {
         DisposableEffect(user?.uid) {
             LibraryRepository.start(requireNotNull(user).uid)
             onDispose { LibraryRepository.stop() }
         }
-        BookHavenNavHost(
-            startRoute = if (startRoute == Routes.Onboarding.route) Routes.HomeLibrary.route else startRoute,
+        MaktabaNavHost(
+            deepRoute = deepRoute,
             pendingRoute = pendingRoute,
             onPendingRouteHandled = onPendingRouteHandled
         )
@@ -120,17 +140,17 @@ fun BookHavenApp(
 }
 
 @Composable
-private fun SignedOutNavHost(startRoute: String) {
+private fun SignedOutNavHost() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = startRoute) {
+    NavHost(navController = navController, startDestination = Routes.Onboarding.route) {
         composable(Routes.Onboarding.route) { OnboardingScreen(navController) }
         composable(Routes.Auth.route) { AuthScreen() }
     }
 }
 
 @Composable
-fun BookHavenNavHost(
-    startRoute: String,
+fun MaktabaNavHost(
+    deepRoute: String?,
     pendingRoute: String?,
     onPendingRouteHandled: () -> Unit
 ) {
@@ -138,17 +158,27 @@ fun BookHavenNavHost(
     val bookIdArg = navArgument("bookId") { type = NavType.StringType }
     val inviteIdArg = navArgument("inviteId") { type = NavType.StringType }
     val inviteCodeArg = navArgument("inviteCode") { type = NavType.StringType }
+
+    // The library is always the root of the stack, so Back from a notification-launched
+    // screen lands on the shelf instead of dropping the user out of the app.
+    var handledDeepRoute by remember { mutableStateOf(false) }
+    LaunchedEffect(deepRoute) {
+        if (!handledDeepRoute && deepRoute != null && deepRoute != Routes.HomeLibrary.route) {
+            navController.navigate(deepRoute) { launchSingleTop = true }
+        }
+        handledDeepRoute = true
+    }
     LaunchedEffect(pendingRoute) {
         pendingRoute?.let { route ->
             navController.navigate(route) { launchSingleTop = true }
             onPendingRouteHandled()
         }
     }
-    NavHost(navController = navController, startDestination = startRoute) {
+
+    NavHost(navController = navController, startDestination = Routes.HomeLibrary.route) {
         composable(Routes.ScreenPicker.route) { ScreenPickerScreen(navController) }
-        composable(Routes.Onboarding.route) { OnboardingScreen(navController) }
         composable(Routes.HomeLibrary.route) { HomeLibraryScreen(navController) }
-        composable(Routes.Collections.route) { CollectionsScreen(navController) }
+        composable(Routes.Loans.route) { LoansScreen(navController) }
         composable(Routes.Wishlist.route) { WishlistScreen(navController) }
         composable(Routes.Profile.route) { ProfileScreen(navController) }
         composable(Routes.AddBook.route) { AddBookScreen(navController) }
@@ -158,19 +188,28 @@ fun BookHavenNavHost(
             BookDetailScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
         }
         composable(Routes.ShareLendingCode.route, arguments = listOf(inviteIdArg)) { entry ->
-            ShareLendingCodeScreen(navController, requireNotNull(entry.arguments?.getString("inviteId")))
+            ShareLendingCodeScreen(
+                navController,
+                requireNotNull(entry.arguments?.getString("inviteId"))
+            )
         }
         composable(Routes.LendBookConfig.route, arguments = listOf(bookIdArg)) { entry ->
             LendBookConfigScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
         }
         composable(Routes.ConfirmBorrow.route, arguments = listOf(inviteCodeArg)) { entry ->
-            ConfirmBorrowScreen(navController, requireNotNull(entry.arguments?.getString("inviteCode")))
+            ConfirmBorrowScreen(
+                navController,
+                requireNotNull(entry.arguments?.getString("inviteCode"))
+            )
         }
         composable(Routes.ActiveLoan.route, arguments = listOf(bookIdArg)) { entry ->
             ActiveLoanScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
         }
         composable(Routes.ReturnConfirmation.route, arguments = listOf(bookIdArg)) { entry ->
-            ReturnConfirmationScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
+            ReturnConfirmationScreen(
+                navController,
+                requireNotNull(entry.arguments?.getString("bookId"))
+            )
         }
         composable(Routes.ReturnReminder.route, arguments = listOf(bookIdArg)) { entry ->
             ReturnReminderScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))

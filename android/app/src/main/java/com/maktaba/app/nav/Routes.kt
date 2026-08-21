@@ -5,7 +5,7 @@ sealed class Routes(val route: String) {
     object Onboarding : Routes("onboarding")
     object Auth : Routes("auth")
     object HomeLibrary : Routes("home_library")
-    object Collections : Routes("collections")
+    object Loans : Routes("loans")
     object Wishlist : Routes("wishlist")
     object Profile : Routes("profile")
     object AddBook : Routes("add_book")
@@ -36,7 +36,7 @@ sealed class Routes(val route: String) {
 
     companion object {
         val all = listOf(
-            Onboarding, Auth, HomeLibrary, Collections, Wishlist, Profile, AddBook, Notifications,
+            Onboarding, Auth, HomeLibrary, Loans, Wishlist, Profile, AddBook, Notifications,
             ScanEnterCode
         )
     }
