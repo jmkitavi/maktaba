@@ -5,6 +5,7 @@ import { formatLoanCode, generateLoanCode, normalizeLoanCode } from "../lib/code
 import { DomainError } from "../lib/domain";
 import {
   validateAcceptLoanInviteInput,
+  validateCopyIdInput,
   validateCreateLoanInviteInput,
   validateResolveLoanInviteInput,
 } from "../lib/validation";
@@ -94,4 +95,11 @@ test("validateAcceptLoanInviteInput accepts the canonical loanId payload", () =>
 
 test("validateAcceptLoanInviteInput requires a loanId or an inviteCode", () => {
   expectDomainError(() => validateAcceptLoanInviteInput({}), "invalid-argument");
+});
+
+test("validateCopyIdInput accepts canonical copy ids", () => {
+  assert.deepEqual(validateCopyIdInput({ copyId: "copy_123456" }), {
+    copyId: "copy_123456",
+  });
+  expectDomainError(() => validateCopyIdInput({ copyId: "../copy" }), "invalid-argument");
 });

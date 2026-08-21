@@ -49,12 +49,14 @@ import {
 } from "./lib/loanState";
 import {
   validateAcceptLoanInviteInput,
+  validateCopyIdInput,
   validateCreateLoanInviteInput,
   validateLoanIdInput,
   validateLoanWorkflowIdInput,
   validateResolveLoanInviteInput,
   validateUserProfileInput,
 } from "./lib/validation";
+import { bookRemovalBlock } from "./lib/bookRemoval";
 import { buildStorageMediaUrl, resolveStorageBucket } from "./lib/storageUrl";
 import type {
   BookSnapshot,
@@ -1352,6 +1354,8 @@ export const createLoanInvite = withCallableErrors(async (request) => {
               return {
                 loanId: existingInviteRef.id,
                 inviteCode: existingInvite.code,
+                dueAtMillis: existingInvite.dueDate.toMillis(),
+                expiresAtMillis: existingInvite.expiresAt.toMillis(),
                 resumed: true,
               };
             }
@@ -1441,8 +1445,11 @@ export const createLoanInvite = withCallableErrors(async (request) => {
         return {
           loanId: inviteRef.id,
           inviteCode: invite.code,
+          dueAtMillis: invite.dueDate.toMillis(),
+          expiresAtMillis: invite.expiresAt.toMillis(),
         };
       });
+
     } catch (error: unknown) {
       if (error instanceof DomainError && error.code === "already-exists") {
         continue;
@@ -1453,6 +1460,83 @@ export const createLoanInvite = withCallableErrors(async (request) => {
   }
 
   throw new HttpsError("internal", "Unable to generate a unique loan code.");
+});
+
+export const removeBookFromLibrary = withCallableErrors(async (request) => {
+  const auth = requireAuth(request);
+  const input = validateCopyIdInput(request.data);
+  const copyRef = db.collection(COLLECTIONS.userBooks).doc(input.copyId);
+  const slotRef = lendingSlotRef(auth.uid, input.copyId);
+
+  return db.runTransaction(async (transaction) => {
+    const [copySnapshot, slotSnapshot] = await Promise.all([
+      transaction.get(copyRef),
+      transaction.get(slotRef),
+    ]);
+    assertDomain(copySnapshot.exists, "not-found", "Book copy not found.");
+    const copy = copySnapshot.data() as UserBookDocument;
+    assertDomain(
+      copy.ownerId === auth.uid,
+      "permission-denied",
+      "Only the owner can remove this book copy.",
+    );
+
+    const slot = slotSnapshot.exists
+      ? slotSnapshot.data() as LendingSlotDocument
+      : null;
+    const inviteRef = slot?.currentInviteId
+      ? db.collection(COLLECTIONS.loanInvites).doc(slot.currentInviteId)
+      : null;
+    const loanRef = slot?.currentLoanId
+      ? db.collection(COLLECTIONS.loans).doc(slot.currentLoanId)
+      : null;
+    const [inviteSnapshot, loanSnapshot] = await Promise.all([
+      inviteRef ? transaction.get(inviteRef) : Promise.resolve(null),
+      loanRef ? transaction.get(loanRef) : Promise.resolve(null),
+    ]);
+    const now = Timestamp.now();
+    const invite = inviteSnapshot?.exists
+      ? inviteSnapshot.data() as LoanInviteDocument
+      : null;
+    if (
+      inviteRef &&
+      invite?.status === "pending" &&
+      isInviteExpired(invite, now)
+    ) {
+      markInviteExpired(
+        transaction,
+        inviteRef,
+        db.collection(COLLECTIONS.loanInviteCodes).doc(invite.codeKey),
+        slotRef,
+        invite,
+        now,
+      );
+    }
+    const block = bookRemovalBlock(
+      slot,
+      invite,
+      loanSnapshot?.exists ? loanSnapshot.data() as LoanDocument : null,
+      now.toDate(),
+    );
+    if (block === "pending_invite") {
+      throw new DomainError(
+        "failed-precondition",
+        "Cancel the pending lending invitation before removing this book.",
+      );
+    }
+    if (block === "active_loan") {
+      throw new DomainError(
+        "failed-precondition",
+        "Finish the active loan before removing this book.",
+      );
+    }
+
+    transaction.delete(copyRef);
+    if (slotSnapshot.exists) {
+      transaction.delete(slotRef);
+    }
+    return { copyId: input.copyId, removed: true };
+  });
 });
 
 export const resolveLoanInvite = withCallableErrors(async (request) => {
