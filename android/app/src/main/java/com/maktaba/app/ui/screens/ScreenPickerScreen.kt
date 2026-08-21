@@ -23,7 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.MinTouchTarget
@@ -68,5 +68,5 @@ fun ScreenPickerScreen(navController: NavHostController) {
 @Preview(showBackground = true, name = "Screen picker")
 @Composable
 private fun ScreenPickerScreenPreview() {
-    MaktabaAppTheme { ScreenPickerScreen(navController = rememberNavController()) }
+    BookHavenTheme { ScreenPickerScreen(navController = rememberNavController()) }
 }

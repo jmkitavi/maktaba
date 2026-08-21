@@ -31,7 +31,7 @@ import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.screens.*
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 
 class MainActivity : ComponentActivity() {
     private var pendingRoute by mutableStateOf<String?>(null)
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             )
 
         setContent {
-            MaktabaAppTheme {
+            BookHavenTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MaktabaApp(
                         deepRoute = deepRoute,

@@ -66,7 +66,7 @@ import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.GreenButton
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
@@ -296,5 +296,5 @@ fun ScanEnterCodeScreen(navController: NavHostController) {
 @Preview(showBackground = true, name = "Borrow a book")
 @Composable
 private fun ScanEnterCodeScreenPreview() {
-    MaktabaAppTheme { ScanEnterCodeScreen(navController = rememberNavController()) }
+    BookHavenTheme { ScanEnterCodeScreen(navController = rememberNavController()) }
 }

@@ -64,7 +64,7 @@ import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.MinTouchTarget
@@ -100,7 +100,7 @@ fun LendBookConfigScreen(navController: NavHostController, bookId: String) {
         UnavailableState(
             title = "Digital edition",
             message = buildString {
-                append("Digital editions cannot be lent through Maktaba.")
+                append("Digital editions cannot be lent through Book Haven.")
                 if (book.physicalEditionIsbn13.isNotBlank()) {
                     append(" The physical edition is ISBN ")
                     append(book.physicalEditionIsbn13)
@@ -374,7 +374,7 @@ private fun FieldLabel(
 @Preview(showBackground = true, name = "Lend book")
 @Composable
 private fun LendBookConfigScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         LendBookConfigScreen(navController = rememberNavController(), bookId = "preview")
     }
 }

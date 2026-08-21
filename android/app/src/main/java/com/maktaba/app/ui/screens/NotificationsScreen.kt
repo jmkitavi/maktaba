@@ -45,7 +45,7 @@ import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.EmptyState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 
@@ -172,5 +172,5 @@ private fun NotificationRow(item: NotificationItem, onClick: () -> Unit) {
 @Preview(showBackground = true, name = "Notifications")
 @Composable
 private fun NotificationsScreenPreview() {
-    MaktabaAppTheme { NotificationsScreen(navController = rememberNavController()) }
+    BookHavenTheme { NotificationsScreen(navController = rememberNavController()) }
 }

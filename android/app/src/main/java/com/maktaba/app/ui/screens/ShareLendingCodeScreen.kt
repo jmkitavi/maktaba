@@ -58,7 +58,7 @@ import com.maktaba.app.ui.components.QrCodeImage
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.delay
@@ -249,7 +249,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
                         type = "text/plain"
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "Borrow \"${book!!.title}\" from me on Maktaba.\n" +
+                            "Borrow \"${book!!.title}\" from me on Book Haven.\n" +
                                 "Open $link, or enter code $code in the app."
                         )
                     }
@@ -333,7 +333,7 @@ private fun ExpiryCountdown(expiresAt: Instant) {
 @Preview(showBackground = true, name = "Share lending code")
 @Composable
 private fun ShareLendingCodeScreenPreview() {
-    MaktabaAppTheme {
+    BookHavenTheme {
         ShareLendingCodeScreen(navController = rememberNavController(), inviteId = "preview")
     }
 }

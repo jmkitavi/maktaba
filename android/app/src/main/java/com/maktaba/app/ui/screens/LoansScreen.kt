@@ -50,7 +50,7 @@ import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.navigateToTab
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.components.urgencyColor
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.util.LoanTimeFormatter
@@ -218,5 +218,5 @@ private fun LoanRow(book: Book, loan: ActiveLoan, onClick: () -> Unit) {
 @Preview(showBackground = true, name = "Loans")
 @Composable
 private fun LoansScreenPreview() {
-    MaktabaAppTheme { LoansScreen(navController = rememberNavController()) }
+    BookHavenTheme { LoansScreen(navController = rememberNavController()) }
 }

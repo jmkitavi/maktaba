@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Light launch theme. The night-qualified copy in values-night/ gives the splash and
          system surfaces a dark ground so they match the Compose dark palette. -->
-    <style name="Theme.Maktaba" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.BookHaven" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/launch_background</item>
     </style>
 </resources>

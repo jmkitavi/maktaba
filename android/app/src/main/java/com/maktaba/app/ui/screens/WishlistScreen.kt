@@ -47,7 +47,7 @@ import com.maktaba.app.ui.components.EmptyState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.navigateToTab
-import com.maktaba.app.ui.theme.MaktabaAppTheme
+import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
@@ -143,7 +143,7 @@ fun WishlistScreen(navController: NavHostController) {
                     if (discoverable.isNotEmpty()) {
                         item {
                             Spacer(Modifier.height(spacing.xs))
-                            SectionHeading("In the Maktaba catalogue")
+                            SectionHeading("In the Book Haven catalogue")
                         }
                         items(discoverable, key = { "discover-${it.catalogId}" }) { book ->
                             WishlistRow(
@@ -237,5 +237,5 @@ private fun WishlistRow(
 @Preview(showBackground = true, name = "Wishlist")
 @Composable
 private fun WishlistScreenPreview() {
-    MaktabaAppTheme { WishlistScreen(navController = rememberNavController()) }
+    BookHavenTheme { WishlistScreen(navController = rememberNavController()) }
 }

@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.Maktaba" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.BookHaven" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/launch_background</item>
     </style>
 </resources>
