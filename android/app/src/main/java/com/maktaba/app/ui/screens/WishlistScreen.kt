@@ -66,7 +66,6 @@ fun WishlistScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
 
     val wishlist = LibraryRepository.wishlistBooks
-    val discoverable = LibraryRepository.discoverableBooks.take(20)
     val hasLoaded = LibraryRepository.hasLoadedLibrary
 
     fun toggle(book: Book, add: Boolean) {
@@ -102,7 +101,7 @@ fun WishlistScreen(navController: NavHostController) {
                 .padding(innerPadding)
                 .background(colors.background)
         ) {
-            if (hasLoaded && wishlist.isEmpty() && discoverable.isEmpty()) {
+            if (hasLoaded && wishlist.isEmpty()) {
                 EmptyState(
                     modifier = Modifier.weight(1f),
                     title = "Nothing saved yet",
@@ -117,47 +116,19 @@ fun WishlistScreen(navController: NavHostController) {
                     item {
                         SectionHeading("Saved for later (${wishlist.size})")
                     }
-                    if (wishlist.isEmpty()) {
-                        item {
-                            Text(
-                                "Nothing saved yet. Star a book below or from its detail screen.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.inkMuted
-                            )
-                        }
-                    } else {
-                        items(wishlist, key = { "saved-${it.catalogId}" }) { book ->
-                            WishlistRow(
-                                book = book,
-                                saved = true,
-                                onToggle = { toggle(book, add = false) },
-                                onClick = {
-                                    navController.navigate(
-                                        Routes.BookDetail.createRoute(book.catalogId)
-                                    )
-                                }
-                            )
-                        }
+                    items(wishlist, key = { "saved-${it.catalogId}" }) { book ->
+                        WishlistRow(
+                            book = book,
+                            saved = true,
+                            onToggle = { toggle(book, add = false) },
+                            onClick = {
+                                navController.navigate(
+                                    Routes.BookDetail.createRoute(book.catalogId)
+                                )
+                            }
+                        )
                     }
 
-                    if (discoverable.isNotEmpty()) {
-                        item {
-                            Spacer(Modifier.height(spacing.xs))
-                            SectionHeading("In the Book Haven catalogue")
-                        }
-                        items(discoverable, key = { "discover-${it.catalogId}" }) { book ->
-                            WishlistRow(
-                                book = book,
-                                saved = false,
-                                onToggle = { toggle(book, add = true) },
-                                onClick = {
-                                    navController.navigate(
-                                        Routes.BookDetail.createRoute(book.catalogId)
-                                    )
-                                }
-                            )
-                        }
-                    }
                 }
             }
         }

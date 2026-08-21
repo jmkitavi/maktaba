@@ -60,6 +60,7 @@ import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.MaktabaCard
+import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
@@ -87,6 +88,10 @@ fun LendBookConfigScreen(navController: NavHostController, bookId: String) {
     var showDatePicker by remember { mutableStateOf(false) }
 
     val book = LibraryRepository.bookById(bookId)
+    if (book == null && !LibraryRepository.hasLoadedLibrary) {
+        LoadingState("Loading this book")
+        return
+    }
     if (book == null) {
         UnavailableState(
             title = "Book unavailable",

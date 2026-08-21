@@ -60,11 +60,13 @@ import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.ConfirmationDialog
+import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.UnavailableState
+import com.maktaba.app.ui.components.catalogueVisuals
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.components.urgencyColor
 import com.maktaba.app.ui.theme.BookHavenTheme
@@ -86,6 +88,10 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
     var removing by remember { mutableStateOf(false) }
 
     val book = LibraryRepository.bookById(bookId)
+    if (book == null && !LibraryRepository.hasLoadedLibrary) {
+        LoadingState("Loading this book")
+        return
+    }
     if (book == null) {
         UnavailableState(
             title = "Book unavailable",
@@ -101,7 +107,13 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
     val isOwnedCopy = LibraryRepository.books.any { it.id == book.id }
     val loan = LibraryRepository.activeLoanFor(book.id)
     val urgency = loan?.let { LoanTimeFormatter.urgency(it.dueAt) } ?: LoanUrgency.UNKNOWN
-    val visuals = statusVisuals(colors, book.status, urgency)
+    // A catalogue row reports status OWNED, so its pill has to be chosen by whether the
+    // user actually holds a copy - not by the placeholder status on the model.
+    val visuals = if (isOwnedCopy) {
+        statusVisuals(colors, book.status, urgency)
+    } else {
+        catalogueVisuals(colors)
+    }
     val onWishlist = LibraryRepository.isOnWishlist(book.catalogId)
 
     if (confirmRemove) {

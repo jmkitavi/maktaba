@@ -78,16 +78,24 @@ fun MaktabaBottomNav(
                         BadgedBox(badge = {
                             Badge(
                                 containerColor = colors.danger,
-                                contentColor = colors.onDanger
+                                contentColor = colors.onDanger,
+                                // The count is announced through the icon description
+                                // below, so the badge itself must stay silent.
+                                modifier = Modifier.clearAndSetSemantics {}
                             ) { Text(overdueCount.toString()) }
                         }) {
-                            Icon(icon, contentDescription = null)
+                            Icon(
+                                icon,
+                                contentDescription = "$overdueCount overdue"
+                            )
                         }
                     } else {
                         Icon(icon, contentDescription = null)
                     }
                 },
-                label = { Text(tab.label, modifier = Modifier.clearAndSetSemantics {}) }
+                // The label is this item's only accessible name - clearing its semantics
+                // left every destination announcing nothing to a screen reader.
+                label = { Text(tab.label) }
             )
         }
     }
