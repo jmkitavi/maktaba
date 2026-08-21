@@ -97,7 +97,9 @@ Response:
 ```json
 {
   "loanId": "generated_workflow_id",
-  "inviteCode": "ABCD-EF23"
+  "inviteCode": "ABCD-EF23",
+  "dueAtMillis": 1782129600000,
+  "expiresAtMillis": 1782734400000
 }
 ```
 
@@ -106,6 +108,25 @@ Notes:
 - `loanId` is created immediately and reused as the eventual `/loans/{loanId}` document ID.
 - `copyId` is the top-level `/userBooks/{copyId}` document ID owned by the lender.
 - The backend resolves `catalogBookId` from that copy record, so copy IDs no longer need to equal catalog IDs.
+- Resumed invitations return the same due date and expiry fields.
+
+### `removeBookFromLibrary`
+
+Request:
+
+```json
+{ "copyId": "copy_123" }
+```
+
+Response:
+
+```json
+{ "copyId": "copy_123", "removed": true }
+```
+
+Removal is rejected while the copy has a pending lending invitation or an open
+loan. Pending invitations must be cancelled first. Client-side Firestore deletes
+for `userBooks` are denied.
 
 ### `resolveLoanInvite`
 

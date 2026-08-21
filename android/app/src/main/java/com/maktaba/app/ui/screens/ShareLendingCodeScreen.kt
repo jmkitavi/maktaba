@@ -103,7 +103,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
         }
     }
     val readyInvite = invite?.takeIf {
-        it.status == "pending" && (it.expiresAt == null || it.expiresAt.isAfter(now))
+        it.status == "pending" && it.expiresAt.isAfter(now)
     }
     val book = readyInvite?.let { LibraryRepository.bookById(it.copyId) }
 
@@ -186,10 +186,8 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
             )
 
             // The expiry was enforced but never shown, so it always arrived as a surprise.
-            readyInvite.expiresAt?.let { expiry ->
-                Spacer(Modifier.height(spacing.sm))
-                ExpiryCountdown(expiresAt = expiry, now = now)
-            }
+            Spacer(Modifier.height(spacing.sm))
+            ExpiryCountdown(expiresAt = readyInvite.expiresAt, now = now)
 
             Spacer(Modifier.height(spacing.md))
 
