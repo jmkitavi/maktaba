@@ -1,0 +1,4 @@
+<resources>
+    <!-- Mirrors MaktabaLightColors.background so the launch window matches the first frame. -->
+    <color name="launch_background">#FBF1E3</color>
+</resources>

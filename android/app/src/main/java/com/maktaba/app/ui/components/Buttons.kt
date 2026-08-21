@@ -8,31 +8,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.maktaba.app.ui.theme.InkBrown
-import com.maktaba.app.ui.theme.MutedText
-import com.maktaba.app.ui.theme.OliveGreen
-import com.maktaba.app.ui.theme.TaupeButton
-import com.maktaba.app.ui.theme.WoodBrown
-import com.maktaba.app.ui.theme.WoodBrownDark
+import com.maktaba.app.ui.theme.MaktabaShapes
+import com.maktaba.app.ui.theme.MaktabaTheme
 
 enum class ButtonTone { PRIMARY, SECONDARY, SUCCESS, DESTRUCTIVE }
+
+private val ButtonHeight = 56.dp
 
 @Composable
 fun MaktabaButton(
@@ -42,48 +39,61 @@ fun MaktabaButton(
     loading: Boolean = false,
     tone: ButtonTone = ButtonTone.PRIMARY,
     leadingIcon: (@Composable () -> Unit)? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit = {}
 ) {
+    val colors = MaktabaTheme.colors
     val active = enabled && !loading
-    val shape = RoundedCornerShape(28.dp)
-    val background = when (tone) {
-        ButtonTone.PRIMARY -> Brush.verticalGradient(listOf(WoodBrown, WoodBrownDark))
-        ButtonTone.SECONDARY -> Brush.verticalGradient(listOf(TaupeButton, TaupeButton))
-        ButtonTone.SUCCESS -> Brush.verticalGradient(listOf(OliveGreen, OliveGreen))
-        ButtonTone.DESTRUCTIVE -> Brush.verticalGradient(listOf(Color(0xFFB3261E), Color(0xFF8C1D18)))
+    val shape = MaktabaShapes.pill
+    val fill = when (tone) {
+        ButtonTone.PRIMARY -> Brush.verticalGradient(listOf(colors.primary, colors.primaryDark))
+        ButtonTone.SECONDARY -> Brush.verticalGradient(listOf(colors.secondary, colors.secondary))
+        ButtonTone.SUCCESS -> Brush.verticalGradient(listOf(colors.accent, colors.accent))
+        ButtonTone.DESTRUCTIVE -> Brush.verticalGradient(listOf(colors.danger, colors.danger))
     }
+    val content = when (tone) {
+        ButtonTone.PRIMARY -> colors.onPrimary
+        ButtonTone.SECONDARY -> colors.onSecondary
+        ButtonTone.SUCCESS -> colors.onAccent
+        ButtonTone.DESTRUCTIVE -> colors.onDanger
+    }
+    val disabledFill = Brush.verticalGradient(
+        listOf(colors.inkMuted.copy(alpha = 0.45f), colors.inkMuted.copy(alpha = 0.55f))
+    )
     Button(
         onClick = onClick,
         enabled = active,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(ButtonHeight)
             .clip(shape)
-            .background(
-                if (active) background
-                else Brush.verticalGradient(listOf(MutedText.copy(alpha = 0.55f), MutedText.copy(alpha = 0.65f)))
-            )
+            .background(if (active) fill else disabledFill)
             .semantics { if (loading) stateDescription = "Loading" },
         shape = shape,
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,
-            contentColor = Color.White,
-            disabledContentColor = Color.White.copy(alpha = 0.8f)
+            contentColor = content,
+            disabledContentColor = content.copy(alpha = 0.85f)
         )
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (loading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    color = Color.White,
+                    color = content,
                     strokeWidth = 2.dp
                 )
-            } else {
-                leadingIcon?.invoke()
+                Spacer(Modifier.width(8.dp))
+            } else if (leadingIcon != null) {
+                leadingIcon()
+                Spacer(Modifier.width(8.dp))
             }
-            if (loading || leadingIcon != null) Spacer(Modifier.width(8.dp))
-            Text(label, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(label, style = MaterialTheme.typography.labelLarge)
+            if (trailingIcon != null && !loading) {
+                Spacer(Modifier.width(8.dp))
+                trailingIcon()
+            }
         }
     }
 }
@@ -97,7 +107,7 @@ fun PrimaryButton(
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit = {}
-) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.PRIMARY, leadingIcon, onClick)
+) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.PRIMARY, leadingIcon, trailingIcon, onClick)
 
 @Composable
 fun SecondaryButton(
@@ -108,7 +118,7 @@ fun SecondaryButton(
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit = {}
-) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.SECONDARY, leadingIcon, onClick)
+) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.SECONDARY, leadingIcon, trailingIcon, onClick)
 
 @Composable
 fun GreenButton(
@@ -118,7 +128,7 @@ fun GreenButton(
     loading: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit = {}
-) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.SUCCESS, leadingIcon, onClick)
+) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.SUCCESS, leadingIcon, null, onClick)
 
 @Composable
 fun DestructiveButton(
@@ -127,7 +137,7 @@ fun DestructiveButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     onClick: () -> Unit = {}
-) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.DESTRUCTIVE, onClick = onClick)
+) = MaktabaButton(text, modifier, enabled, loading, ButtonTone.DESTRUCTIVE, null, null, onClick)
 
 @Composable
 fun OutlinedPillButton(
@@ -137,16 +147,47 @@ fun OutlinedPillButton(
     loading: Boolean = false,
     onClick: () -> Unit = {}
 ) {
+    val colors = MaktabaTheme.colors
     OutlinedButton(
         onClick = onClick,
         enabled = enabled && !loading,
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp),
-        shape = RoundedCornerShape(28.dp)
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = ButtonHeight),
+        shape = MaktabaShapes.pill
     ) {
         if (loading) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = InkBrown)
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = colors.ink
+            )
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, color = InkBrown, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/**
+ * Low-emphasis action. Used where a screen previously stacked three equal-weight pills and
+ * gave the destructive option the same visual authority as the way out.
+ */
+@Composable
+fun TextActionButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    destructive: Boolean = false,
+    onClick: () -> Unit = {}
+) {
+    val colors = MaktabaTheme.colors
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp)
+    ) {
+        Text(
+            text,
+            color = if (destructive) colors.danger else colors.inkSoft,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }

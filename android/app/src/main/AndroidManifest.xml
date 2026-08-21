@@ -7,17 +7,25 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Book Haven"
+        android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.BookHaven">
+        android:theme="@style/Theme.Maktaba">
         <activity
             android:name=".MainActivity"
             android:windowSoftInputMode="adjustResize"
             android:exported="true"
-            android:theme="@style/Theme.BookHaven">
+            android:theme="@style/Theme.Maktaba">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- The lending QR encodes maktaba://loan?code=... - without this filter that
+                 payload resolved to nothing when scanned outside the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="maktaba" android:host="loan" />
             </intent-filter>
         </activity>
         <service
