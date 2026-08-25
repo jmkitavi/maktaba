@@ -22,3 +22,10 @@ android/**/*.iml
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+## Firebase app config (contains project API keys — keep local only)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+.firebaserc
+serviceAccountKey.json
+**/*-firebase-adminsdk-*.json
