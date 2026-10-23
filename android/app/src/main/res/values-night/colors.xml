@@ -1,0 +1,4 @@
+<resources>
+    <!-- Mirrors MaktabaDarkColors.background. -->
+    <color name="launch_background">#171310</color>
+</resources>

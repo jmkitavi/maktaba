@@ -2,6 +2,9 @@ package com.maktaba.app.data
 
 import android.util.Log
 import androidx.annotation.DrawableRes
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import com.maktaba.app.BuildConfig
@@ -83,6 +86,39 @@ object LibraryRepository {
     private val loanIdsByBook: androidx.compose.runtime.snapshots.SnapshotStateMap<String, String> =
         androidx.compose.runtime.mutableStateMapOf()
 
+    /**
+     * False until the first catalogue *and* first user-copies snapshot have arrived.
+     * Without this the library screen cannot tell "you own nothing" from "Firestore has
+     * not answered yet", and told every returning user their shelf was empty on launch.
+     */
+    var hasLoadedLibrary by mutableStateOf(false)
+        private set
+
+    /**
+     * Loans arrive from their own pair of listeners, so a screen that resolves a loan can
+     * be looking at an empty list long after [hasLoadedLibrary] flips. Without this, loan
+     * screens rendered "Loan unavailable" for the moment before the snapshot landed.
+     */
+    var hasLoadedLoans by mutableStateOf(false)
+        private set
+
+    private var catalogLoaded = false
+    private var copiesLoaded = false
+    private val loanFieldsLoaded = mutableSetOf<String>()
+
+    private fun markLoaded(catalog: Boolean = false, copies: Boolean = false) {
+        if (catalog) catalogLoaded = true
+        if (copies) copiesLoaded = true
+        if (catalogLoaded && copiesLoaded) hasLoadedLibrary = true
+    }
+
+    private fun markLoansLoaded(participantField: String) {
+        loanFieldsLoaded += participantField
+        if (loanFieldsLoaded.containsAll(listOf("lenderUid", "borrowerUid"))) {
+            hasLoadedLoans = true
+        }
+    }
+
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val functions by lazy { FirebaseFunctions.getInstance() }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -124,6 +160,11 @@ object LibraryRepository {
         pendingBorrowLoans.clear()
         pendingBorrowBooks.clear()
         clearObservableState()
+        catalogLoaded = false
+        copiesLoaded = false
+        loanFieldsLoaded.clear()
+        hasLoadedLibrary = false
+        hasLoadedLoans = false
         currentUid = null
     }
 
@@ -195,7 +236,7 @@ object LibraryRepository {
     suspend fun startLending(bookId: String, borrowerName: String, dueAtMillis: Long): PendingLoanInvite {
         val book = requireNotNull(bookById(bookId)) { "This book is no longer available." }
         require(book.format != BookFormat.DIGITAL) {
-            "Digital editions can’t be lent through Maktaba."
+            "Digital editions can’t be lent through Book Haven."
         }
         val result = callFunction(
             "createLoanInvite",
@@ -205,19 +246,10 @@ object LibraryRepository {
                 "borrowerDisplayName" to borrowerName
             )
         )
-        val code = LoanInviteCode.parse(result["inviteCode"] as? String)
-            ?: error("Firebase returned an invalid invitation code.")
-        val loanId = result["loanId"] as? String ?: error("Firebase did not return a loan ID.")
-        val invite = PendingLoanInvite(
-            id = loanId,
-            copyId = bookId,
-            code = code,
-            dueAt = Instant.ofEpochMilli(dueAtMillis),
-            expiresAt = null
-        )
-        lendingCodes[code.value] = bookId
-        loanIdsByBook[bookId] = loanId
-        pendingInvites[loanId] = invite
+        val invite = pendingLoanInviteFromCreateResult(bookId, result)
+        lendingCodes[invite.code.value] = bookId
+        loanIdsByBook[bookId] = invite.id
+        pendingInvites[invite.id] = invite
         return invite
     }
 
@@ -234,7 +266,9 @@ object LibraryRepository {
             copyId = snapshot.getString("copyId").orEmpty(),
             code = code,
             dueAt = snapshot.getTimestamp("dueDate")?.toDate()?.toInstant(),
-            expiresAt = snapshot.getTimestamp("expiresAt")?.toDate()?.toInstant(),
+            expiresAt = requireNotNull(snapshot.getTimestamp("expiresAt")) {
+                "The lending invitation is missing its expiry."
+            }.toDate().toInstant(),
             status = status
         )
         require(invite.copyId.isNotBlank()) { "The lending invitation is missing its book." }
@@ -353,6 +387,57 @@ object LibraryRepository {
         firestore.collection("users").document(uid).collection("wishlist").document(catalogId).delete().await()
     }
 
+    fun isOnWishlist(catalogId: String): Boolean = wishlistCatalogIds.contains(catalogId)
+
+    /**
+     * People this user is currently lending to, most recent first. Used to offer
+     * suggestion chips so the same name is not retyped - and misspelled - every loan.
+     */
+    val recentBorrowerNames: List<String>
+        get() = lenderLoans.values
+            // Every loan this user has ever made, not just the open ones - the people you
+            // lend to most are precisely the ones whose loans have already been returned.
+            .sortedByDescending { loan ->
+                (loan["acceptedAt"] as? Timestamp)?.toDate()?.time
+                    ?: (loan["createdAt"] as? Timestamp)?.toDate()?.time
+                    ?: 0L
+            }
+            .mapNotNull { (it["borrowerDisplayName"] as? String)?.trim()?.takeIf(String::isNotBlank) }
+            .filterNot { it.equals("a friend", ignoreCase = true) }
+            .distinct()
+            .take(4)
+
+    /** Catalogue entries the signed-in user has starred, resolved to displayable books. */
+    val wishlistBooks: List<Book>
+        get() = wishlistCatalogIds.mapNotNull { id -> maktabaCollection.find { it.catalogId == id } }
+
+    /** Catalogue entries the user neither owns nor has already wishlisted. */
+    val discoverableBooks: List<Book>
+        get() {
+            val ownedCatalogIds = books.map { it.catalogId }.toSet()
+            return maktabaCollection.filter {
+                it.catalogId !in ownedCatalogIds && it.catalogId !in wishlistCatalogIds
+            }
+        }
+
+    /**
+     * Deletes the user's copy of a book. Catalogue metadata is shared between users and
+     * server-owned, so this removes the shelf entry only - it never edits `catalogBooks`.
+     */
+    /** True while any loan or un-redeemed invite still references this copy. */
+    fun hasOpenLoanActivity(bookId: String): Boolean =
+        activeLoanFor(bookId) != null ||
+            pendingInvites.values.any {
+                it.copyId == bookId &&
+                    it.status == "pending" &&
+                    it.expiresAt.isAfter(Instant.now())
+            }
+
+    suspend fun removeBook(bookId: String) {
+        requireNotNull(currentUid) { "Sign in before changing your library." }
+        callFunction("removeBookFromLibrary", mapOf("copyId" to bookId))
+    }
+
     private fun listenToCatalog() {
         listeners += firestore.collection("catalogBooks").addSnapshotListener { snapshot, error ->
             if (error != null) {
@@ -363,6 +448,7 @@ object LibraryRepository {
             catalog.clear()
             snapshot.documents.forEach { catalog[it.id] = it.data.orEmpty() }
             Log.d(TAG, "Catalog snapshot: ${catalog.size} books")
+            markLoaded(catalog = true)
             rebuildMaktabaCollection()
             rebuildBooksAndLoans()
         }
@@ -379,6 +465,7 @@ object LibraryRepository {
                 copies.clear()
                 snapshot.documents.forEach { copies[it.id] = it.data.orEmpty() }
                 Log.d(TAG, "User books snapshot: ${copies.size} copies for $uid")
+                markLoaded(copies = true)
                 rebuildBooksAndLoans()
             }
     }
@@ -397,6 +484,7 @@ object LibraryRepository {
                 snapshot ?: return@addSnapshotListener
                 target.clear()
                 snapshot.documents.forEach { target[it.id] = it.data.orEmpty() }
+                markLoansLoaded(participantField)
                 loans.clear()
                 loans.putAll(lenderLoans)
                 loans.putAll(borrowerLoans)

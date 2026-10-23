@@ -24,7 +24,7 @@ class MaktabaMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val title = message.notification?.title ?: message.data["title"] ?: "Maktaba"
+        val title = message.notification?.title ?: message.data["title"] ?: "Book Haven"
         val body = message.notification?.body ?: message.data["message"] ?: return
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
