@@ -15,7 +15,8 @@ export function bookRemovalBlock(
   if (
     slot?.state === "invite_pending" &&
     invite?.status === "pending" &&
-    invite.expiresAt.toDate().getTime() > now.getTime()
+    invite.expiresAt.toDate().getTime() > now.getTime() &&
+    invite.dueDate.toDate().getTime() > now.getTime()
   ) {
     return "pending_invite";
   }

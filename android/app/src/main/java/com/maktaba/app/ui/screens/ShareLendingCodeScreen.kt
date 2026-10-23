@@ -19,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -49,9 +48,11 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.PendingLoanInvite
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.ConfirmationDialog
 import com.maktaba.app.ui.components.GreenButton
+import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.QrCodeImage
@@ -70,7 +71,11 @@ import java.time.Instant
 fun lendingLinkFor(code: String) = "maktaba://loan?code=$code"
 
 @Composable
-fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
+fun ShareLendingCodeScreen(
+    navController: NavHostController,
+    inviteId: String,
+    loadInvite: suspend (String) -> PendingLoanInvite = LibraryRepository::loadPendingInvite
+) {
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
     val context = LocalContext.current
@@ -86,7 +91,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
 
     LaunchedEffect(inviteId) {
         if (invite == null) {
-            runCatching { LibraryRepository.loadPendingInvite(inviteId) }
+            runCatching { loadInvite(inviteId) }
                 .onSuccess { invite = it }
                 .onFailure { error = it.localizedMessage ?: "This invitation is unavailable." }
             loading = false
@@ -107,7 +112,12 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
     }
     val book = readyInvite?.let { LibraryRepository.bookById(it.copyId) }
 
-    if (!loading && (error != null || readyInvite == null || book == null)) {
+    if (loading) {
+        LoadingState("Loading this invitation")
+        return
+    }
+
+    if (error != null || readyInvite == null || book == null) {
         UnavailableState(
             title = "This code has expired",
             message = error
@@ -166,14 +176,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = spacing.lg)
         ) {
-            if (loading) {
-                Box(Modifier.fillMaxWidth().padding(spacing.xl), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.primary)
-                }
-                return@Column
-            }
-
-            val code = readyInvite!!.code.value
+            val code = readyInvite.code.value
             val link = lendingLinkFor(code)
 
             Spacer(Modifier.height(spacing.xs))
@@ -256,7 +259,7 @@ fun ShareLendingCodeScreen(navController: NavHostController, inviteId: String) {
                         type = "text/plain"
                         putExtra(
                             Intent.EXTRA_TEXT,
-                            "Borrow \"${book!!.title}\" from me on Book Haven.\n" +
+                            "Borrow \"${book.title}\" from me on Book Haven.\n" +
                                 "Open $link, or enter code $code in the app."
                         )
                     }

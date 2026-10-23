@@ -23,7 +23,7 @@ test("blocks removal for a pending invitation", () => {
   assert.equal(
     bookRemovalBlock(
       slot,
-      { status: "pending", expiresAt: future } as LoanInviteDocument,
+      { status: "pending", expiresAt: future, dueDate: future } as LoanInviteDocument,
       null,
       now,
     ),
@@ -40,6 +40,20 @@ test("blocks removal for an open loan", () => {
     ),
     "active_loan",
   );
+});
+
+test("allows removal when the invitation due date has passed or is now", () => {
+  for (const dueDate of [past, { toDate: () => now }]) {
+    assert.equal(
+      bookRemovalBlock(
+        slot,
+        { status: "pending", expiresAt: future, dueDate } as LoanInviteDocument,
+        null,
+        now,
+      ),
+      null,
+    );
+  }
 });
 
 test("allows removal when slot references are stale or closed", () => {
