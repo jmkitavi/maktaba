@@ -1,30 +1,33 @@
 package com.maktaba.app.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.theme.MaktabaTheme
-import com.maktaba.app.util.LoanTimeFormatter
-import com.maktaba.app.util.LoanUrgency
 
 /**
  * Four destinations. "Collections" and the placeholder "Wishlist" used to occupy half of
@@ -34,22 +37,23 @@ import com.maktaba.app.util.LoanUrgency
 enum class BottomNavTab(val label: String) {
     LIBRARY("Library"),
     LOANS("Loans"),
-    WISHLIST("Wishlist"),
+    COLLECTIONS("Collections"),
     PROFILE("Profile")
 }
 
 @Composable
 fun MaktabaBottomNav(
-    selected: BottomNavTab,
+    selected: BottomNavTab?,
     onSelect: (BottomNavTab) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = MaktabaTheme.colors
-    val overdueCount = LibraryRepository.activeLoans.count {
-        LoanTimeFormatter.urgency(it.dueAt) == LoanUrgency.OVERDUE
-    }
-
-    NavigationBar(modifier = modifier, containerColor = colors.backgroundElevated) {
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    NavigationBar(
+        modifier = modifier.height(76.dp + bottomInset),
+        containerColor = colors.backgroundElevated,
+        tonalElevation = 0.dp
+    ) {
         BottomNavTab.values().forEach { tab ->
             val isSelected = tab == selected
             NavigationBarItem(
@@ -60,42 +64,29 @@ fun MaktabaBottomNav(
                     selectedTextColor = colors.navActive,
                     unselectedIconColor = colors.navInactive,
                     unselectedTextColor = colors.navInactive,
-                    indicatorColor = colors.surfaceAlt
+                    indicatorColor = Color.Transparent
                 ),
                 icon = {
                     val icon = when (tab) {
-                        BottomNavTab.LIBRARY ->
-                            if (isSelected) Icons.AutoMirrored.Filled.MenuBook
-                            else Icons.AutoMirrored.Outlined.MenuBook
-                        BottomNavTab.LOANS ->
-                            if (isSelected) Icons.Filled.SwapHoriz else Icons.Outlined.SwapHoriz
-                        BottomNavTab.WISHLIST ->
-                            if (isSelected) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder
-                        BottomNavTab.PROFILE ->
-                            if (isSelected) Icons.Filled.Person else Icons.Outlined.Person
+                        BottomNavTab.LIBRARY -> Icons.AutoMirrored.Outlined.MenuBook
+                        BottomNavTab.LOANS -> Icons.Outlined.SwapHoriz
+                        BottomNavTab.COLLECTIONS -> Icons.Outlined.CollectionsBookmark
+                        BottomNavTab.PROFILE -> Icons.Outlined.Person
                     }
-                    if (tab == BottomNavTab.LOANS && overdueCount > 0) {
-                        BadgedBox(badge = {
-                            Badge(
-                                containerColor = colors.danger,
-                                contentColor = colors.onDanger,
-                                // The count is announced through the icon description
-                                // below, so the badge itself must stay silent.
-                                modifier = Modifier.clearAndSetSemantics {}
-                            ) { Text(overdueCount.toString()) }
-                        }) {
-                            Icon(
-                                icon,
-                                contentDescription = "$overdueCount overdue"
-                            )
-                        }
-                    } else {
-                        Icon(icon, contentDescription = null)
+                    Box(
+                        Modifier.background(
+                            if (isSelected) colors.surfaceAlt else Color.Transparent,
+                            RoundedCornerShape(15.dp)
+                        ).padding(horizontal = 14.dp, vertical = 3.dp)
+                    ) {
+                        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
                     }
                 },
                 // The label is this item's only accessible name - clearing its semantics
                 // left every destination announcing nothing to a screen reader.
-                label = { Text(tab.label) }
+                label = {
+                    Text(tab.label, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 14.sp))
+                }
             )
         }
     }
@@ -105,7 +96,7 @@ fun NavHostController.navigateToTab(tab: BottomNavTab) {
     val route = when (tab) {
         BottomNavTab.LIBRARY -> Routes.HomeLibrary.route
         BottomNavTab.LOANS -> Routes.Loans.route
-        BottomNavTab.WISHLIST -> Routes.Wishlist.route
+        BottomNavTab.COLLECTIONS -> Routes.Collections.route
         BottomNavTab.PROFILE -> Routes.Profile.route
     }
     navigate(route) {

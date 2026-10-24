@@ -61,14 +61,78 @@ service cloud.firestore {
           'photoUrl',
           'notificationsEnabled',
           'createdAt',
-          'updatedAt'
+          'updatedAt',
+          'uid', 'searchableDisplayName', 'photoURL', 'notificationPreferences', 'lastSeenAt',
+          'libraryShared', 'libraryName', 'hiddenCatalogIds', 'publicationEpoch', 'librarySharingBlocked'
         ]) &&
         isShortString(data.displayName, 1, 80) &&
-        isOptionalShortString(data.email, 320) &&
-        (data.photoUrl == null || isShortString(data.photoUrl, 1, 2048)) &&
-        data.notificationsEnabled is bool &&
+        isOptionalShortString(data.get('email', null), 320) &&
+        (data.get('photoUrl', null) == null || isShortString(data.photoUrl, 1, 2048)) &&
+        data.get('notificationsEnabled', true) is bool &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
+    }
+
+    function activeOwner(ownerUid, epoch) {
+      let gate = get(/databases/$(database)/documents/publicLibraryState/$(ownerUid));
+      return gate.data.published == true && gate.data.publicationEpoch == epoch;
+    }
+
+    function activeLibrary(ownerUid, epoch) {
+      let parent = get(/databases/$(database)/documents/sharedLibraries/$(ownerUid));
+      return parent.data.published == true && parent.data.publicationEpoch == epoch &&
+        activeOwner(ownerUid, epoch);
+    }
+
+    function activeReader(ownerUid, epoch) {
+      let parent = get(/databases/$(database)/documents/sharedReaders/$(ownerUid));
+      return parent.data.published == true && parent.data.publicationEpoch == epoch &&
+        activeOwner(ownerUid, epoch);
+    }
+
+    function activeCollection(ownerUid, collectionId, epoch) {
+      let parent = get(/databases/$(database)/documents/sharedReaders/$(ownerUid)/collections/$(collectionId));
+      return parent.data.published == true && parent.data.publicationEpoch == epoch &&
+        activeReader(ownerUid, epoch);
+    }
+
+    match /publicLibraryState/{ownerUid} {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    match /sharedLibraries/{ownerUid} {
+      allow get: if isSignedIn() && resource.data.published == true &&
+        activeOwner(ownerUid, resource.data.publicationEpoch);
+      // No per-result gate reads: callable revocation atomically removes this flag.
+      allow list: if isSignedIn() && request.query.limit <= 20 &&
+        resource.data.published == true;
+      allow write: if false;
+      match /books/{catalogId} {
+        allow get: if isSignedIn() && activeLibrary(ownerUid, resource.data.publicationEpoch);
+        allow list: if isSignedIn() && request.query.limit <= 60 &&
+          activeLibrary(ownerUid, resource.data.publicationEpoch);
+        allow write: if false;
+      }
+    }
+
+    match /sharedReaders/{ownerUid} {
+      allow get: if isSignedIn() && resource.data.published == true &&
+        activeOwner(ownerUid, resource.data.publicationEpoch);
+      allow list, write: if false;
+      match /collections/{collectionId} {
+        allow get: if isSignedIn() && resource.data.published == true &&
+          activeReader(ownerUid, resource.data.publicationEpoch);
+        allow list: if isSignedIn() && request.query.limit <= 60 &&
+          resource.data.published == true && activeReader(ownerUid, resource.data.publicationEpoch);
+        allow write: if false;
+        match /books/{catalogId} {
+          allow get: if isSignedIn() && activeCollection(ownerUid, collectionId, resource.data.publicationEpoch);
+          allow list: if isSignedIn() && request.query.limit <= 60 &&
+            activeCollection(ownerUid, collectionId, resource.data.publicationEpoch);
+          allow write: if false;
+        }
+      }
     }
 
     function validFcmToken(data) {
@@ -90,8 +154,9 @@ service cloud.firestore {
 
     function isLoanParticipant(data) {
       return isSignedIn() &&
-        (data.lenderUid == request.auth.uid ||
-          data.borrowerUid == request.auth.uid);
+        (request.auth.uid in data.get('participants', []) ||
+          data.get('lenderUid', null) == request.auth.uid ||
+          data.get('borrowerUid', null) == request.auth.uid);
     }
 
     function isInviteViewer(data) {
@@ -157,9 +222,24 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSelf(userId);
-      allow create, update: if isSelf(userId) && validClientUserProfile(request.resource.data);
+      allow create: if isSelf(userId) && validClientUserProfile(request.resource.data) &&
+        request.resource.data.keys().hasAll([
+          'displayName', 'email', 'photoUrl', 'notificationsEnabled', 'createdAt', 'updatedAt'
+        ]) &&
+        !request.resource.data.keys().hasAny([
+          'uid', 'searchableDisplayName', 'photoURL', 'notificationPreferences', 'lastSeenAt',
+          'libraryShared', 'libraryName', 'hiddenCatalogIds', 'publicationEpoch', 'librarySharingBlocked'
+        ]);
+      allow update: if isSelf(userId) && validClientUserProfile(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'email', 'photoUrl', 'notificationsEnabled', 'createdAt', 'updatedAt'
+        ]);
       allow delete: if false;
 
+      match /collections/{collectionId} {
+        allow read: if isSelf(userId);
+        allow write: if false;
+      }
       match /fcmTokens/{tokenId} {
         allow read: if isSelf(userId);
         allow create, update: if isSelf(userId) && validFcmToken(request.resource.data);

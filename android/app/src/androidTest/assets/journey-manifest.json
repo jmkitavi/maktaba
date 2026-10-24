@@ -1,0 +1,1010 @@
+{
+  "sourceHashes": {
+    "index.html": "557895eb0e7f5da0e2cbac2d1b8be209da082168fab75458443651152beae348",
+    "styles.css": "f0d7972719db4c65218eb46ead91723a8f317b2e512fa20f2658af3f464d102b",
+    "mockups.js": "c7793665e169b37de615184780f55efc96cb67ba7f4eee87380e92b80f156ac6",
+    "design-data.js": "c22dff20fb4fe537e8e74a5c37321177b3f3dff3d88c56ddea67e3229a89a2f7",
+    "missing-screens.html": "80ff3e12598095514e7add1b60ca895136e949ad0bc777b54bf81e4e7075c650",
+    "missing-screens.css": "a9d3a4b17fa2a3e6c55646d7ea94f4b4d2ab9152ebd918d7b7594f5523323ab7",
+    "missing-screens.js": "d8c01051aa93f50517c9f3e41a008d0979170b9566bc1d2607934e7efdec9b5d",
+    "missing-screens-assets.js": "396742ab00a2ecb91159b58f1b32126891a0ec962f04b0c6f008d951e2275d60"
+  },
+  "original": {
+    "home": {
+      "number": "08",
+      "phone": "catalogue-stack-compact",
+      "label": "My Library",
+      "description": "Browse the private library, search and filter, or choose a book.",
+      "setup": [],
+      "text": "9:41\n\nBOOK HAVEN\n\nMy Library\n3\nAll books\nOn my shelf\nLent out\nBorrowed\nOverdue\nTHE COLLECTION\n8 books\nOn my shelf\nThe Art of Quiet Mornings\nMara Ellis\nPhysical edition\nLent out\nLetters from Distant Shores\nJonah Reed\nOverdue by 4 days\nBorrowed\nA Field Guide to Small Things\nNora Bell\nDue in 2 days\nLent out\nStillwater & Other Stories\nEli Rivers\nDue in 6 days\nTHE BOOK HAVEN\nCOLLECTION\nThe Gentle Practice of Solitude\nAVERY LANE\nOn my shelf\nThe Gentle Practice of Solitude\nAvery Lane\nPhysical edition\nBorrowed\nThe Restless City\nRobin Vale\nDue today\nOn my shelf\nThe Paper Garden\nJules Hart\nDigital edition\nTHE BOOK HAVEN\nCOLLECTION\nA Room Full of Winter Light\nHARPER MOSS\nOn my shelf\nA Room Full of Winter Light\nHarper Moss\nPhysical edition\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/home-light.png",
+        "dark": "references/home-dark.png"
+      }
+    },
+    "detail-owned": {
+      "number": "12",
+      "phone": "details-book-first",
+      "label": "Book Details",
+      "description": "An owned physical copy of The Art of Quiet Mornings, ready to lend.",
+      "setup": [],
+      "text": "9:41\nThe Art of Quiet Mornings\n\nby Mara Ellis\n\nOn my shelf\nABOUT THE BOOK\n\nSmall rituals, open windows and the pleasure of an unhurried day. A collection of thoughtful essays about making room for the things that matter.\n\nGenre\nEssays\nPublished\n2021\nPages\n224\nPhysical edition\nMore book actions\nLend This Book",
+      "references": {
+        "light": "references/detail-owned-light.png",
+        "dark": "references/detail-owned-dark.png"
+      }
+    },
+    "lend": {
+      "number": "20",
+      "phone": "lend-book",
+      "label": "Lend a Book",
+      "description": "Choose the return date and an optional borrower label.",
+      "setup": [],
+      "text": "9:41\nLend a Book\nThe Art of Quiet Mornings\n\nMara Ellis\n\nPhysical edition\nReturn By\n\nIn the app, both readers get a reminder before this date.\n\nWho Is Borrowing?\nOptional\n\nA label for your own reference, not an account invitation.\n\nThe loan starts only when the borrower has the book and confirms the handover.\n\nGenerate Lending Code\n\nCreates a local sample code, never a real invitation.",
+      "references": {
+        "light": "references/lend-light.png",
+        "dark": "references/lend-dark.png"
+      }
+    },
+    "share-code": {
+      "number": "21",
+      "phone": "share-code",
+      "label": "Share the Code",
+      "description": "Share a pending invitation. The QR remains an illustrative, non-scannable sample.",
+      "setup": [],
+      "text": "9:41\nShare the Code\nThe Art of Quiet Mornings\n\nMara Ellis\n\nPhysical edition\n\nCode active for\n24 h 0 min\n\nYOUR LENDING CODE\n\nDEMO-2048\n\nCopy Code\n\nIllustrative QR · Not scannable\n\nWaiting for Jordan to confirm.\n\nCancel This Invite\nShare Link\nDone\n\nSample only. The code does not start the loan.",
+      "references": {
+        "light": "references/share-code-light.png",
+        "dark": "references/share-code-dark.png"
+      }
+    },
+    "loans-borrowed": {
+      "number": "11",
+      "phone": "loans",
+      "label": "Borrowed Books",
+      "description": "The Borrowed tab and the entry point for a new lending code.",
+      "setup": [
+        [
+          "click",
+          "#phone-loans [data-loan-tab='borrowed']"
+        ]
+      ],
+      "text": "9:41\n\nBOOK HAVEN\n\nLoans\nLent Out\n2\nBorrowed\n2\n\nClosest return dates first\n\nBorrowed\nThe Restless City\nRobin Vale\nFrom Kit\nDue today\nBorrowed\nA Field Guide to Small Things\nNora Bell\nFrom Alex\nDue in 2 days\n\nA borrowed book is a shared story.\n\nBorrow with a Code\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/loans-borrowed-light.png",
+        "dark": "references/loans-borrowed-dark.png"
+      }
+    },
+    "scan-code": {
+      "number": "22",
+      "phone": "scan-code",
+      "label": "Scan / Enter Code",
+      "description": "Scan the lender's code or enter it manually, then find the book.",
+      "setup": [],
+      "text": "9:41\nBorrow a Book\nA shared story awaits.\n\nScan the lender's QR code, or enter the code they sent you.\n\nScan QR Code\nOpens the camera scanner in the app\n\nor\nEnter the Code\n\nCodes look like ABCD-1234. You can use the sample scan to fill this preview.\n\nFind This Book\n\nLocal sample lookup only. No camera or account access.",
+      "references": {
+        "light": "references/scan-code-light.png",
+        "dark": "references/scan-code-dark.png"
+      }
+    },
+    "confirm-borrow": {
+      "number": "23",
+      "phone": "confirm-borrow",
+      "label": "Confirm Borrow",
+      "description": "Review the book, lender and return date. Only confirm after physical handover.",
+      "setup": [],
+      "text": "9:41\nConfirm Borrow\nHave the book in hand?\n\nOnly confirm once Alex Reader has physically handed it to you. This starts the loan in the app.\n\nThe Art of Quiet Mornings\n\nMara Ellis\n\nPhysical edition\n\nA\nLender\nAlex Reader\n\nAgreed Return Date\n6 Nov 2026\n\nThe app reminds both readers before the agreed date. No reminder is sent by this preview.\n\nI Have the Book Not Yet",
+      "references": {
+        "light": "references/confirm-borrow-light.png",
+        "dark": "references/confirm-borrow-dark.png"
+      }
+    },
+    "borrow-success": {
+      "number": "23",
+      "phone": "confirm-borrow",
+      "label": "Borrow Confirmed",
+      "description": "Sample success after confirming the handover; no real loan or library change.",
+      "setup": [
+        [
+          "click",
+          "#phone-confirm-borrow [data-handoff-action='confirm']"
+        ]
+      ],
+      "text": "9:41\nConfirm Borrow\nA shared story begins.\n\nBorrow confirmed · Local preview\n\nThe Art of Quiet Mornings\n\nMara Ellis\n\nPhysical edition\nAgreed Return Date\n6 Nov 2026\n\nIn the app, this would open the active loan. This preview has not started a loan or changed your library.\n\nBack to Loans\n\nSample library and loan counts are unchanged.",
+      "references": {
+        "light": "references/borrow-success-light.png",
+        "dark": "references/borrow-success-dark.png"
+      }
+    },
+    "loans-lent": {
+      "number": "11",
+      "phone": "loans",
+      "label": "Lent Out",
+      "description": "Find a lent copy and see its counterparty and return status.",
+      "setup": [],
+      "text": "9:41\n\nBOOK HAVEN\n\nLoans\nLent Out\n2\nBorrowed\n2\n\nClosest return dates first\n\nLent out\nLetters from Distant Shores\nJonah Reed\nWith Sam\nOverdue by 4 days\nLent out\nStillwater & Other Stories\nEli Rivers\nWith Bea\nDue in 6 days\n\nA good book deserves another reader.\n\nChoose a Book to Lend\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/loans-lent-light.png",
+        "dark": "references/loans-lent-dark.png"
+      }
+    },
+    "active-lender": {
+      "number": "24",
+      "phone": "active-loan",
+      "label": "Active Loan / Lender",
+      "description": "Letters from Distant Shores is with Sam. The agreed return date is four days overdue.",
+      "setup": [],
+      "text": "9:41\nActive Loan\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nLent out\nS\nBorrower\nSam\nAgreed Return Date\n19 Oct 2026\nRETURN TIMELINE\n\nOverdue by 4 days\n\nHanded over\n28 Sept 2026\nDue back\n19 Oct 2026\nView the Book\nSend a Reminder\nStart a Return\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/active-lender-light.png",
+        "dark": "references/active-lender-dark.png"
+      }
+    },
+    "reminder-send": {
+      "number": "25",
+      "phone": "return-reminder",
+      "label": "Review a Reminder",
+      "description": "The lender reviews the recipient and a gentle reminder before sending.",
+      "setup": [
+        [
+          "click",
+          "#phone-active-loan [data-loan-management-action='reminder']"
+        ]
+      ],
+      "text": "9:41\nSend Reminder\nA Little Nudge for Sam\n\nA short reminder, with the book and agreed date. Nothing more.\n\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nTO SAM\n\nA gentle reminder about Letters from Distant Shores. We agreed on 19 Oct 2026. Thanks for keeping the story moving.\n\nThis preview does not change the agreed return date or deliver a notification.\n\nSend Reminder\nNot Now\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/reminder-send-light.png",
+        "dark": "references/reminder-send-dark.png"
+      }
+    },
+    "reminder-sent": {
+      "number": "25",
+      "phone": "return-reminder",
+      "label": "Reminder Feedback",
+      "description": "Sample sent feedback. No notification is delivered by this prototype.",
+      "setup": [
+        [
+          "click",
+          "#phone-active-loan [data-loan-management-action='reminder']"
+        ],
+        [
+          "click",
+          "#phone-return-reminder [data-loan-management-action='send-reminder']"
+        ]
+      ],
+      "text": "9:41\nSend Reminder\nA Little Nudge, Sent\n\nSample success only. No notification was delivered.\n\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nTO SAM\n\nA gentle reminder about Letters from Distant Shores. We agreed on 19 Oct 2026. Thanks for keeping the story moving.\n\nThis preview does not change the agreed return date or deliver a notification.\n\nOpen This Loan\nNot Now\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/reminder-sent-light.png",
+        "dark": "references/reminder-sent-dark.png"
+      }
+    },
+    "return-request": {
+      "number": "26",
+      "phone": "confirm-return",
+      "label": "Request Confirmation",
+      "description": "Once Sam has handed the copy back, request confirmation of the return.",
+      "setup": [],
+      "text": "9:41\nReturn\nBack With Its Owner?\n\nOnly continue once Sam has handed this copy back to you. The other reader will be asked to confirm.\n\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nYou\nNot confirmed yet\nSam\nNot confirmed yet\n\nA request alone does not close the loan. Both readers must confirm. No real loan is changed.\n\nRequest Return Confirmation\nNot Yet\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/return-request-light.png",
+        "dark": "references/return-request-dark.png"
+      }
+    },
+    "return-waiting": {
+      "number": "26",
+      "phone": "confirm-return",
+      "label": "Waiting for Sam",
+      "description": "Your part is confirmed. The loan remains open until Sam confirms too.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-scenario",
+          "requested-self"
+        ]
+      ],
+      "text": "9:41\nReturn\nOne Last Confirmation\n\nYour part is confirmed. Sam still needs to confirm the handover. This loan is not closed yet.\n\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nYou\nConfirmed\nSam\nAwaiting confirmation\n\nA request alone does not close the loan. Both readers must confirm. No real loan is changed.\n\nWaiting for Confirmation\nBack to This Loan\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/return-waiting-light.png",
+        "dark": "references/return-waiting-dark.png"
+      }
+    },
+    "return-done": {
+      "number": "26",
+      "phone": "confirm-return",
+      "label": "Return Complete / Lender",
+      "description": "Both readers have confirmed. The real app would restore the owner's copy to the shelf.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-scenario",
+          "returned"
+        ]
+      ],
+      "text": "9:41\nReturn\nBack Where It Belongs\n\nBoth readers confirmed · Local preview\n\nLetters from Distant Shores\n\nJonah Reed\n\nPhysical edition\nYou\nConfirmed\nSam\nConfirmed\n\nIn the app, this copy would be back on your shelf and the loan closed for both readers. The sample library and counts have not changed.\n\nBack to Loans\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/return-done-light.png",
+        "dark": "references/return-done-dark.png"
+      }
+    },
+    "reminder-borrower": {
+      "number": "25",
+      "phone": "return-reminder",
+      "label": "Received Reminder",
+      "description": "A Field Guide to Small Things is borrowed from Alex and is due in two days.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-book",
+          "small-things"
+        ]
+      ],
+      "text": "9:41\nReturn Reminder\nA Gentle Reminder\n\nA shared story from Alex. Keep the agreed date in mind.\n\nA Field Guide to Small Things\n\nNora Bell\n\nPhysical edition\nRETURN TIMELINE\n\nDue in 2 days\n\nHanded over\n4 Oct 2026\nDue back\n25 Oct 2026\n\nNeed more time? Contact the other reader and agree a new date between you. This preview does not offer messaging or reschedule the loan.\n\nOpen This Loan\nNot Now\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/reminder-borrower-light.png",
+        "dark": "references/reminder-borrower-dark.png"
+      }
+    },
+    "active-borrower": {
+      "number": "24",
+      "phone": "active-loan",
+      "label": "Active Loan / Borrower",
+      "description": "Review the agreed date and return actions. Borrowers do not send lender reminders.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-book",
+          "small-things"
+        ]
+      ],
+      "text": "9:41\nActive Loan\nA Field Guide to Small Things\n\nNora Bell\n\nPhysical edition\nBorrowed\nA\nLender\nAlex\nAgreed Return Date\n25 Oct 2026\nRETURN TIMELINE\n\nDue in 2 days\n\nHanded over\n4 Oct 2026\nDue back\n25 Oct 2026\nView the Book\nStart a Return\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/active-borrower-light.png",
+        "dark": "references/active-borrower-dark.png"
+      }
+    },
+    "return-confirm-borrower": {
+      "number": "26",
+      "phone": "confirm-return",
+      "label": "Your Turn to Confirm",
+      "description": "Alex has requested confirmation. Only confirm once you have handed the copy back.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-book",
+          "small-things"
+        ],
+        [
+          "select",
+          "#loan-management-scenario",
+          "requested-other"
+        ]
+      ],
+      "text": "9:41\nReturn\nConfirm the Return\n\nAlex says this book is back with its owner. Only confirm if you have handed this copy back.\n\nA Field Guide to Small Things\n\nNora Bell\n\nPhysical edition\nYou\nAwaiting confirmation\nAlex\nConfirmed\n\nYour confirmation closes this sample loan for both readers. No real loan is changed.\n\nConfirm the Return\nNot Yet\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/return-confirm-borrower-light.png",
+        "dark": "references/return-confirm-borrower-dark.png"
+      }
+    },
+    "return-done-borrower": {
+      "number": "26",
+      "phone": "confirm-return",
+      "label": "Return Complete / Borrower",
+      "description": "Both readers agree. The real app would remove the borrowed copy and close the loan.",
+      "setup": [
+        [
+          "select",
+          "#loan-management-book",
+          "small-things"
+        ],
+        [
+          "select",
+          "#loan-management-scenario",
+          "returned"
+        ]
+      ],
+      "text": "9:41\nReturn\nBack Where It Belongs\n\nBoth readers confirmed · Local preview\n\nA Field Guide to Small Things\n\nNora Bell\n\nPhysical edition\nYou\nConfirmed\nAlex\nConfirmed\n\nIn the app, this copy would leave your borrowed books and return to Alex's shelf. The sample library and counts have not changed.\n\nBack to Loans\n\nLocal preview only. Your library and loans are unchanged.",
+      "references": {
+        "light": "references/return-done-borrower-light.png",
+        "dark": "references/return-done-borrower-dark.png"
+      }
+    },
+    "collections": {
+      "number": "15",
+      "phone": "collections-yours",
+      "label": "Collections / Yours",
+      "description": "Want to Read is pinned and private. Custom lists remain labelled Phase 2 previews.",
+      "setup": [],
+      "text": "9:41\n\nBOOK HAVEN\n\nCollections\nYours\nBrowse\n\nA little order. Room for what comes next.\n\nWhere the Light Falls\nWant to Read\n3 books · Pinned\nPrivate\nYOUR COLLECTIONS\nPHASE 2 PREVIEW\nThe Gentle Practice of Solitude\nA Room Full of Winter Light\nQuiet Weekend Reads\n3 books\nPrivate · Preview\nFor the Book Club\n2 books\nPrivate · Preview\nNew Collection\nPhase 2\nYOUR LIBRARY\nWhole-shelf visibility\nYour library is private\nOnly you can see your shelf\nShare My Library\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/collections-light.png",
+        "dark": "references/collections-dark.png"
+      }
+    },
+    "want-to-read": {
+      "number": "19",
+      "phone": "want-to-read",
+      "label": "Want to Read",
+      "description": "Revisit the same private saved titles without sharing or deleting the pinned collection.",
+      "setup": [],
+      "text": "9:41\nWant to Read\nPrivate · Pinned\n3 books\nThe Long Way to Sunday\nMira Vale\nFiction\nNotes from the Orchard\nRowan Ellis\nEssays\nTHE BOOK HAVEN\nCOLLECTION\nWhere the Light Falls\nARI BELL\nWhere the Light Falls\nAri Bell\nPoetry",
+      "references": {
+        "light": "references/want-to-read-light.png",
+        "dark": "references/want-to-read-dark.png"
+      }
+    },
+    "detail-saved": {
+      "number": "12",
+      "phone": "details-book-first",
+      "label": "Saved Catalogue Title",
+      "description": "The Long Way to Sunday is a saved title, not an owned copy. No lending or removal action.",
+      "setup": [
+        [
+          "select",
+          "#detail-book-choice",
+          "catalogue:sunday"
+        ]
+      ],
+      "text": "9:41\nThe Long Way to Sunday\n\nby Mira Vale\n\nCatalogue Title\nABOUT THE BOOK\n\nA slow journey through small towns, unlikely friendships and the places that begin to feel like home.\n\nGenre\nFiction\nPublished\n2023\nPages\n272\nPhysical edition",
+      "references": {
+        "light": "references/detail-saved-light.png",
+        "dark": "references/detail-saved-dark.png"
+      }
+    },
+    "browse": {
+      "number": "16",
+      "phone": "collections-browse",
+      "label": "Browse Libraries",
+      "description": "Search the directory of libraries shared with signed-in readers.",
+      "setup": [],
+      "text": "9:41\n\nBOOK HAVEN\n\nCollections\nYours\nBrowse\n\nShared with signed-in Book Haven readers\n\nThe Gentle Practice of Solitude\nRowan's Reading Room\nRowan Ellis\n4 books\nA Room Full of Winter Light\nThe Sunday Shelf\nMira Vale\n3 books\nThe Gentle Practice of Solitude\nBooks by the Window\nAri Bell\n2 books\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/browse-light.png",
+        "dark": "references/browse-dark.png"
+      }
+    },
+    "shared": {
+      "number": "17",
+      "phone": "shared-library",
+      "label": "A Shared Library",
+      "description": "Rowan's public catalogue shows availability, never loan counterparties or due dates.",
+      "setup": [],
+      "text": "9:41\nRowan's Reading Room\nR\nRowan Ellis\n\n4 books · Shared with signed-in readers\n\nThe Art of Quiet Mornings\nMara Ellis\nAvailable\nLetters from Distant Shores\nJonah Reed\nOn Loan\nTHE BOOK HAVEN\nCOLLECTION\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\nAvailable\nThe Paper Garden\nJules Hart\nDigital · Cannot be lent",
+      "references": {
+        "light": "references/shared-light.png",
+        "dark": "references/shared-dark.png"
+      }
+    },
+    "detail-catalogue": {
+      "number": "12",
+      "phone": "details-book-first",
+      "label": "Shared Catalogue Title",
+      "description": "Inspect The Art of Quiet Mornings as a catalogue title, without private copy actions.",
+      "setup": [
+        [
+          "select",
+          "#detail-book-choice",
+          "catalogue:quiet-mornings"
+        ]
+      ],
+      "text": "9:41\nThe Art of Quiet Mornings\n\nby Mara Ellis\n\nCatalogue Title\nABOUT THE BOOK\n\nSmall rituals, open windows and the pleasure of an unhurried day. A collection of thoughtful essays about making room for the things that matter.\n\nGenre\nEssays\nPublished\n2021\nPages\n224\nPhysical edition",
+      "references": {
+        "light": "references/detail-catalogue-light.png",
+        "dark": "references/detail-catalogue-dark.png"
+      }
+    },
+    "profile": {
+      "number": "14",
+      "phone": "profile",
+      "label": "Profile",
+      "description": "The fictional Alex Reader profile, library-sharing entry and account menu.",
+      "setup": [],
+      "text": "9:41\n\nBOOK HAVEN\n\nProfile\nAR\nAlex Reader\n\nBook Haven member\n\nFictional sample profile\n4\nOn My Shelf\n2\nLent Out\n2\nBorrowed\nYour library is private\nOnly you can see your shelf\nShare My Library\nYOUR ACCOUNT\nNotifications\nUpdates on your shared books\nSettings\nApp preferences\nLog Out\nSign out of Book Haven\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/profile-light.png",
+        "dark": "references/profile-dark.png"
+      }
+    },
+    "sharing-off": {
+      "number": "18",
+      "phone": "library-sharing",
+      "label": "Sharing Is Off",
+      "description": "Read the audience and privacy explanation before opting in.",
+      "setup": [],
+      "text": "9:41\nLibrary Sharing\nYour shelf. Your choice.\n\nSharing shows your library name, display name and owned books — including digital editions — to signed-in Book Haven readers.\n\nBorrowed books stay private. Lent books show only On Loan, never who has them or when they are due. Hidden books are excluded.\n\nLIBRARY NAME\n\nShare My Library\nOff. Only you can see your shelf.\n\nYour shelf stays private until you choose otherwise.\n\nLocal prototype only. Sharing and exclusions reset on reload; no Firebase data is read or changed.",
+      "references": {
+        "light": "references/sharing-off-light.png",
+        "dark": "references/sharing-off-dark.png"
+      }
+    },
+    "sharing-on": {
+      "number": "18",
+      "phone": "library-sharing",
+      "label": "Choose What Is Visible",
+      "description": "Sharing is enabled locally. The Paper Garden is excluded; borrowed books always stay private.",
+      "setup": [
+        [
+          "click",
+          "#phone-library-sharing .share-switch"
+        ],
+        [
+          "click",
+          "#phone-library-sharing [data-collection-action='hidden-books']"
+        ],
+        [
+          "check",
+          "#phone-library-sharing [data-hidden-book='paper-garden']"
+        ],
+        [
+          "scroll",
+          "#phone-library-sharing .app-scroll",
+          230
+        ]
+      ],
+      "text": "9:41\nLibrary Sharing\nYour shelf. Your choice.\n\nSharing shows your library name, display name and owned books — including digital editions — to signed-in Book Haven readers.\n\nBorrowed books stay private. Lent books show only On Loan, never who has them or when they are due. Hidden books are excluded.\n\nLIBRARY NAME\n\nShare My Library\nVisible to signed-in readers\nHidden Books\n1\n\nChecked books are hidden. Borrowed copies are never included.\n\nThe Art of Quiet Mornings\nVisible\nLetters from Distant Shores\nVisible\nStillwater & Other Stories\nVisible\nThe Gentle Practice of Solitude\nThe Gentle Practice of Solitude\nVisible\nThe Paper Garden\nHidden\nA Room Full of Winter Light\nA Room Full of Winter Light\nVisible\n\nLocal prototype only. Sharing and exclusions reset on reload; no Firebase data is read or changed.",
+      "references": {
+        "light": "references/sharing-on-light.png",
+        "dark": "references/sharing-on-dark.png"
+      }
+    },
+    "browse-own": {
+      "number": "16",
+      "phone": "collections-browse",
+      "label": "Your Library Is Listed",
+      "description": "The opted-in library appears in Browse with the same exclusion applied.",
+      "setup": [
+        [
+          "click",
+          "#phone-library-sharing .share-switch"
+        ],
+        [
+          "click",
+          "#phone-library-sharing [data-collection-action='hidden-books']"
+        ],
+        [
+          "check",
+          "#phone-library-sharing [data-hidden-book='paper-garden']"
+        ]
+      ],
+      "text": "9:41\n\nBOOK HAVEN\n\nCollections\nYours\nBrowse\n\nShared with signed-in Book Haven readers\n\nThe Gentle Practice of Solitude\nAlex Reader's Library\nAlex Reader\n5 books\nYours\nThe Gentle Practice of Solitude\nRowan's Reading Room\nRowan Ellis\n4 books\nA Room Full of Winter Light\nThe Sunday Shelf\nMira Vale\n3 books\nThe Gentle Practice of Solitude\nBooks by the Window\nAri Bell\n2 books\nLibrary\nLoans\nCollections\nProfile",
+      "references": {
+        "light": "references/browse-own-light.png",
+        "dark": "references/browse-own-dark.png"
+      }
+    },
+    "shared-own": {
+      "number": "17",
+      "phone": "shared-library",
+      "label": "Your Shared Preview",
+      "description": "Review the five visible owned copies. The excluded digital title and borrowed copies are absent.",
+      "setup": [
+        [
+          "click",
+          "#phone-library-sharing .share-switch"
+        ],
+        [
+          "click",
+          "#phone-library-sharing [data-collection-action='hidden-books']"
+        ],
+        [
+          "check",
+          "#phone-library-sharing [data-hidden-book='paper-garden']"
+        ],
+        [
+          "click",
+          "#phone-collections-browse [data-shared-open='self']"
+        ]
+      ],
+      "text": "9:41\nAlex Reader's Library\nA\nAlex Reader\nYours\n\n5 books · Shared with signed-in readers\n\nThe Art of Quiet Mornings\nMara Ellis\nAvailable\nLetters from Distant Shores\nJonah Reed\nOn Loan\nStillwater & Other Stories\nEli Rivers\nOn Loan\nTHE BOOK HAVEN\nCOLLECTION\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\nAvailable\nTHE BOOK HAVEN\nCOLLECTION\nA Room Full of Winter Light\nHARPER MOSS\nA Room Full of Winter Light\nHarper Moss\nAvailable",
+      "references": {
+        "light": "references/shared-own-light.png",
+        "dark": "references/shared-own-dark.png"
+      }
+    }
+  },
+  "companion": {
+    "27": {
+      "flow": "settings",
+      "label": "27 · Settings",
+      "references": {
+        "light": "references/companion-27-light.png",
+        "dark": "references/companion-27-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nSettings\nTHIS DEVICE\nAppearance\nFollow device\nNotifications\nPermission and device settings\nYOUR LIBRARY\nLibrary Sharing\nManage your existing library visibility\nBOOK HAVEN\nAbout\nApp information\n\nA quieter home for the books you keep and lend.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "28": {
+      "flow": "settings",
+      "label": "28 · Appearance",
+      "references": {
+        "light": "references/companion-28-light.png",
+        "dark": "references/companion-28-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nAppearance\nMake yourself at home.\n\nChoose how Book Haven looks on this device.\n\nAppearance\nSystem · follow device\nLight\nDark\n\nLocal appearance preview only. No account preference is saved.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "29": {
+      "flow": "settings",
+      "label": "29 · Device notifications",
+      "references": {
+        "light": "references/companion-29-light.png",
+        "dark": "references/companion-29-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nDevice notifications\nNotifications on this device\nAllowed\n\nAndroid controls whether this app may show notifications on this device.\n\nUse device settings to review permission, sound and other Android controls.\n\nOpen device settings\n\nPermission state above is a gallery sample, not a device check.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "30": {
+      "flow": "settings",
+      "label": "30 · About",
+      "references": {
+        "light": "references/companion-30-light.png",
+        "dark": "references/companion-30-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nAbout\nBook Haven\n\nA place for your books, and the stories you share.\n\nAndroid app\n\nVersion: supplied by the installed app.\n\nThis design does not invent account services, support channels or policy destinations.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "31": {
+      "flow": "collections",
+      "label": "31 · Collections / Yours",
+      "references": {
+        "light": "references/companion-31-light.png",
+        "dark": "references/companion-31-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\n\nBOOK HAVEN\n\nCollections\nYours\nBrowse\nWant to Read\nPinned · private · never renamed or deleted\nYOUR COLLECTIONS\nSlow Sunday reads\n3 selected / 2 visible · Private\nNew collection\nYour library\nPrivate · separate from collection sharing\nOTHER ENTRY POINTS\nAdd a catalogue title\nFrom Library or Book Detail\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "32": {
+      "flow": "collections",
+      "label": "32 · Create collection",
+      "references": {
+        "light": "references/companion-32-light.png",
+        "dark": "references/companion-32-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nCreate collection\nGive your list a name.\n\nStart private. Choose titles after creating your collection.\n\nCollection name\n\n0/60 · required\n\nCreate collection\n\nOne catalogue title per list, even if you own multiple copies. Up to 500 titles.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "33": {
+      "flow": "collections",
+      "label": "33 · Collection detail",
+      "references": {
+        "light": "references/companion-33-light.png",
+        "dark": "references/companion-33-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nCollection\nPrivate · only you\nSlow Sunday reads\n\n3 selected / 2 visible · by Alex Reader\n\nSelected titles stay in your private collection. Visible counts exclude globally hidden titles; a private collection is not published.\n\nThe Art of Quiet Mornings\nMara Ellis\nCatalogue reference\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\nCatalogue reference\nThe Paper Garden\nJules Hart\nHidden from shared views\nSelect booksEdit collectionPrivacy & sharing\n\nRemoving a title here only removes it from this collection.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "34": {
+      "flow": "collections",
+      "label": "34 · Select books",
+      "references": {
+        "light": "references/companion-34-light.png",
+        "dark": "references/companion-34-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nSelect books\n\nChoose catalogue references, including borrowed titles. This does not imply ownership. Unchecking removes a title from this list, not your Library. Globally hidden titles stay selected privately but never appear in shared views.\n\nSearch title or author\n\n3/500 selected · 2 visible when shared\n\nThe Art of Quiet Mornings\nMara Ellis\nOwned physical · eligible\nLetters from Distant Shores\nJonah Reed\nOwned · lent out · eligible\nA Field Guide to Small Things\nNora Bell\nBorrowed title · catalogue reference · eligible\nStillwater & Other Stories\nEli Rivers\nOwned · lent out · eligible\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\nOwned physical · eligible\nThe Restless City\nRobin Vale\nBorrowed title · catalogue reference · eligible\nThe Paper Garden\nJules Hart\nOwned digital · eligible\nHidden from all shared views · stays in private lists\nA Room Full of Winter Light\nHARPER MOSS\nA Room Full of Winter Light\nHarper Moss\nOwned physical · eligible\nThe Long Way to Sunday\nMira Vale\nCatalogue only · not owned · eligible\nNotes from the Orchard\nRowan Ellis\nCatalogue only · not owned · eligible\nWhere the Light Falls\nARI BELL\nWhere the Light Falls\nAri Bell\nCatalogue only · not owned · eligible\nSave 3 selected titles\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "35": {
+      "flow": "collections",
+      "label": "35 · Edit collection",
+      "references": {
+        "light": "references/companion-35-light.png",
+        "dark": "references/companion-35-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nEdit collection\nMake it yours.\n\nChanging this name does not rename any book or your library.\n\nCollection name\n\n17/60 · required\n\nSave namePrivacy & sharingDelete collection\n\nOne catalogue title per list, even if you own multiple copies. Up to 500 titles.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "36": {
+      "flow": "collections",
+      "label": "36 · Privacy & sharing",
+      "references": {
+        "light": "references/companion-36-light.png",
+        "dark": "references/companion-36-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nPrivacy & sharing\nYour list. Your choice.\nPrivate · only you\n\nSharing this collection shows its name, your display name and visible catalogue metadata to signed-in Book Haven readers.\n\nNo copy ownership, loan dates, availability or borrower names are shown. This does not change your whole-library sharing setting.\n\nCollection visibility\nPrivate · only you\nShared · signed-in readers\n\n3 selected / 2 visible\n\nGlobal title hiding always applies to all shared views. Collection sharing cannot override it. Hidden titles remain selected privately but are excluded from reader grids, cover previews and visible counts.\n\n1 selected title is hidden from every shared view.\n\nPrivate lists stay visible only to you. Making this collection private does not change your whole-library sharing setting.\n\nThe Art of Quiet Mornings\nMara Ellis\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\nReview reader previewKeep this collection private\n\nWant to Read is separate and always private.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "37": {
+      "flow": "collections",
+      "label": "37 · Delete collection",
+      "references": {
+        "light": "references/companion-37-light.png",
+        "dark": "references/companion-37-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nDelete collection\nDelete this collection?\n\nSlow Sunday reads\n\n3 titles · Private collection\n\nOnly this list is deleted. Your books, catalogue entries and Want to Read remain unchanged. This cannot be undone.\n\nDelete collectionKeep collection\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "38": {
+      "flow": "collections",
+      "label": "38 · Add to collection",
+      "references": {
+        "light": "references/companion-38-light.png",
+        "dark": "references/companion-38-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nAdd to collection\nThe Long Way to Sunday\nCatalogue title · not owned\nAdd to a collection\n\nThis saves a catalogue reference, not a copy in your Library. Global title hiding cannot be bypassed by adding to a shared list.\n\nSlow Sunday reads\nPrivate collection\nNew collection\n\nIn the app, Library and Book Detail open this picker for the chosen title. Want to Read keeps its separate save action.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "39": {
+      "flow": "collections",
+      "label": "39 · Owner reader preview",
+      "references": {
+        "light": "references/companion-39-light.png",
+        "dark": "references/companion-39-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nOwner reader preview\nReader view · catalogue metadata only\nSlow Sunday reads\n\nAlex Reader · 2 visible titles\n\nThe Art of Quiet Mornings\nMara Ellis\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvery Lane\n\nA list of catalogue references, not a statement of ownership. No loan information is shown.\n\nBack to privacy\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "40": {
+      "flow": "report",
+      "label": "40 · Shared library / overflow",
+      "references": {
+        "light": "references/companion-40-light.png",
+        "dark": "references/companion-40-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nShared library\nRowan’s Reading Room\n\nRowan Ellis · 4 visible titles\n\nThe Art of Quiet Mornings\nAvailable\nLetters from Distant Shores\nOn loan\nThe Gentle Practice of Solitude\nAVERY LANE\nThe Gentle Practice of Solitude\nAvailable\nThe Paper Garden\nDigital · cannot be lent\nLIBRARY MENU\nReport this library\nTell us about a concern with this shared library\n\nShared books do not reveal dates or borrowers. Borrowed copies are never included in a whole shared library.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "41": {
+      "flow": "report",
+      "label": "41 · Report library",
+      "references": {
+        "light": "references/companion-41-light.png",
+        "dark": "references/companion-41-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReport library\n\nReporting Rowan’s Reading Room, shared by Rowan Ellis.\n\nReason Required\nInappropriate library name\nHarassment or hateful language\nImpersonation\nSpam or misleading name\nOther concern\nDetails (optional)\n\n0/500\n\nPlease avoid contact details or sensitive personal information. A report does not automatically remove the library.\n\nReview report\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "42": {
+      "flow": "report",
+      "label": "42 · Review report",
+      "references": {
+        "light": "references/companion-42-light.png",
+        "dark": "references/companion-42-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReview report\nCheck before submitting.\n\nLibrary\n\nRowan’s Reading Room · Rowan Ellis\n\nReason\n\nChoose a reason first\n\nDetails\n\nNo additional details\n\nThe app operator would receive this report for manual review. No automatic takedown or resolution time is promised.\n\nLocal preview: submitting here never sends a report.\n\nSubmit report previewEdit report\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "43": {
+      "flow": "report",
+      "label": "43 · Report outcome",
+      "references": {
+        "light": "references/companion-43-light.png",
+        "dark": "references/companion-43-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReport outcome\nReport preview complete.\n\nNo report was sent. This illustrates the acknowledgement shown after a real report is accepted.\n\nProposed sent-state next step: return to the same shared library. No automatic hiding or blocking.\n\nReturn to library\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "44": {
+      "flow": "add",
+      "label": "44 · Add a Book",
+      "references": {
+        "light": "references/companion-44-light.png",
+        "dark": "references/companion-44-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nAdd a Book\nA new place on your shelf.\n\nScan the barcode on the back cover, enter its ISBN, or add the details yourself.\n\nScan barcodeEnter an ISBNEnter details by hand\n\nAdd books you own. Borrowing a book still uses the lending-code journey, not this screen.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "45": {
+      "flow": "add",
+      "label": "45 · Scanner handoff",
+      "references": {
+        "light": "references/companion-45-light.png",
+        "dark": "references/companion-45-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nScan barcode\nScan the back-cover barcode.\n\nThe Android app opens its existing platform EAN-13 scanner. It returns an ISBN for lookup, not a saved book.\n\nThis is a handoff preview, not a camera feed. No scan has taken place.\n\nUse fictional sample ISBNType ISBN insteadEnter details by hand\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "46": {
+      "flow": "add",
+      "label": "46 · ISBN lookup",
+      "references": {
+        "light": "references/companion-46-light.png",
+        "dark": "references/companion-46-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nISBN lookup\nFind this edition.\n\nType the ISBN-10 or ISBN-13 printed beside the barcode. Spaces and hyphens are accepted.\n\nISBN\n\nLookup is simulated. The fixture below uses fictional metadata; it is not a real catalogue request.\n\nLook up this ISBNUse fictional sample ISBNEnter details by hand\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "47": {
+      "flow": "add",
+      "label": "47 · Check the details",
+      "references": {
+        "light": "references/companion-47-light.png",
+        "dark": "references/companion-47-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nCheck the details\n\nFrom your own entry · no lookup required\n\nYour book title\nAUTHOR\n\nEdition format follows its binding metadata. Check it before adding.\n\nTitle (required)\nAuthor (required)\nBinding / edition (optional)\nISBN & more details (optional)\nAdd to my library · preview\n\nThis would add an owned copy, not a loan or a Want to Read entry.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "48": {
+      "flow": "add",
+      "label": "48 · Add outcome",
+      "references": {
+        "light": "references/companion-48-light.png",
+        "dark": "references/companion-48-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nAdd preview\nAdd preview complete.\n\nYour book would appear in your Library after a real save.\n\nNo book or copy was saved. Your actual library is unchanged.\n\nReturn to LibraryTry another book\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "49": {
+      "flow": "notifications",
+      "label": "49 · Notifications",
+      "references": {
+        "light": "references/companion-49-light.png",
+        "dark": "references/companion-49-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nNotifications\n\n3 unread sample updates\n\nAll\nUnread\nUnread\nA gentle reminder\nA Field Guide to Small Things is due back to Alex in two days.\nUnread\nConfirm your return\nAlex has asked you to confirm handing back A Field Guide to Small Things.\nUnread\nFour days overdue\nLetters from Distant Shores is still with Sam.\nRead\nA book is home\nStillwater & Other Stories has been returned.\nRead\nLoan accepted\nSam confirmed receiving The Art of Quiet Mornings.\nRead\nDue in two days\nA Field Guide to Small Things is due back to Alex soon.\nRead\nDue today\nThe Restless City is due back to Kit today.\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "50": {
+      "flow": "notifications",
+      "label": "50 · Active loan destination",
+      "references": {
+        "light": "references/companion-50-light.png",
+        "dark": "references/companion-50-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nActive loan\n\nLocal destination preview\n\nThe loan at a glance.\nA Field Guide to Small Things\nNora Bell\n\nA Field Guide to Small Things is due back to Alex in two days.\n\nView the existing loan and its agreed return information. No new loan is created by this notification.\n\nOpen approved active loanBack to notifications\n\nThe approved gallery opens its default fixture. This local summary preserves the selected notification’s context.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "51": {
+      "flow": "notifications",
+      "label": "51 · Return confirmation destination",
+      "references": {
+        "light": "references/companion-51-light.png",
+        "dark": "references/companion-51-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nConfirm return\n\nLocal destination preview\n\nConfirm the handover.\nA Field Guide to Small Things\nNora Bell\n\nAlex has asked you to confirm handing back A Field Guide to Small Things.\n\nAlex has confirmed their part. Confirm only after handing the book back. Both readers must agree; opening this notification does not close a loan.\n\nOpen approved return designBack to notifications\n\nThe approved gallery opens its default fixture. This local summary preserves the selected notification’s context.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "52": {
+      "flow": "notifications",
+      "label": "52 · Returned book destination",
+      "references": {
+        "light": "references/companion-52-light.png",
+        "dark": "references/companion-52-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReturned book route\nStillwater & Other Stories\n\nEli Rivers\n\nThis completed-return notification continues to the approved Book First 12 layout for the returned title.\n\nOpen approved Book First 12Back to notifications\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "53": {
+      "flow": "notifications",
+      "label": "53 · Reminder destination",
+      "references": {
+        "light": "references/companion-53-light.png",
+        "dark": "references/companion-53-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReturn reminder\n\nLocal destination preview\n\nA gentle nudge.\nLetters from Distant Shores\nJonah Reed\n\nLetters from Distant Shores is still with Sam.\n\nLender: review the overdue loan and the reminder to Sam before sending.\n\nOpen approved reminder designBack to notifications\n\nThe approved gallery opens its default fixture. This local summary preserves the selected notification’s context.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "54": {
+      "flow": "collections",
+      "label": "54 · Reader Profile / entry",
+      "references": {
+        "light": "references/companion-54-light.png",
+        "dark": "references/companion-54-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nReader Profile\nMira Vale\n\nReader\n\nLibrary is private\n\nMira has not shared her whole library. Her independently shared collections below remain visible.\n\nSHARED COLLECTIONS\nWeekend Pages\n3 visible titles · Shared\n\nOnly collections Mira has chosen to share appear here. Mira’s global title hiding applies to every one of her shared collections.\n\nLibrary\nLoans\nCollections\nProfile"
+    },
+    "55": {
+      "flow": "collections",
+      "label": "55 · Shared collection / reader",
+      "references": {
+        "light": "references/companion-55-light.png",
+        "dark": "references/companion-55-dark.png"
+      },
+      "text": "9:41\n▰ ▰ ▰\nCollection\nShared · signed-in readers\nWeekend Pages\nBy Mira Vale\nView reader Profile\n\n3 visible titles\n\nThe Long Way to Sunday\nMira Vale\nA Field Guide to Small Things\nNora Bell\nThe Paper Garden\nJules Hart\n\nA curated list of catalogue references, not a statement of ownership. No loan information is shown.\n\nLibrary\nLoans\nCollections\nProfile"
+    }
+  },
+  "illustrations": {
+    "illus_home_icon.png": {
+      "path": "artwork/illus_home_icon.png",
+      "sha256": "9d88f69d4d8f14f214f012432fcdbe55883fa37c75fc1d686550fbb195ca58b6"
+    },
+    "illus_enter_code.png": {
+      "path": "artwork/illus_enter_code.png",
+      "sha256": "8ed4af7cb1ce48d6462519594a2f329c22e648a6a568be3d794420433dbfe3b5"
+    },
+    "illus_return_confirmation.png": {
+      "path": "artwork/illus_return_confirmation.png",
+      "sha256": "a1f23b8417e93e4be52c9d5348cd20c34aaa44564e976beaf08789d1c54561ff"
+    }
+  },
+  "fixtures": [
+    {
+      "id": "quiet-mornings",
+      "title": "The Art of Quiet Mornings",
+      "author": "Mara Ellis",
+      "genre": "Essays",
+      "role": "shelf",
+      "days": null,
+      "format": "Physical",
+      "jacket": "arches",
+      "lines": [
+        "THE ART OF",
+        "QUIET",
+        "MORNINGS"
+      ],
+      "paper": "#e6d6b7",
+      "ink": "#463b29",
+      "artwork": {
+        "svg": "artwork/quiet-mornings.svg",
+        "png": "artwork/quiet-mornings.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "distant-shores",
+      "title": "Letters from Distant Shores",
+      "author": "Jonah Reed",
+      "genre": "Fiction",
+      "role": "lent",
+      "days": -4,
+      "person": "Sam",
+      "format": "Physical",
+      "jacket": "waves",
+      "lines": [
+        "LETTERS",
+        "FROM DISTANT",
+        "SHORES"
+      ],
+      "paper": "#314b43",
+      "ink": "#eee1c7",
+      "artwork": {
+        "svg": "artwork/distant-shores.svg",
+        "png": "artwork/distant-shores.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "small-things",
+      "title": "A Field Guide to Small Things",
+      "author": "Nora Bell",
+      "genre": "Nature",
+      "role": "borrowed",
+      "days": 2,
+      "person": "Alex",
+      "format": "Physical",
+      "jacket": "botanical",
+      "lines": [
+        "A FIELD GUIDE",
+        "TO SMALL",
+        "THINGS"
+      ],
+      "paper": "#a9b29b",
+      "ink": "#293d2a",
+      "artwork": {
+        "svg": "artwork/small-things.svg",
+        "png": "artwork/small-things.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "stillwater",
+      "title": "Stillwater & Other Stories",
+      "author": "Eli Rivers",
+      "genre": "Stories",
+      "role": "lent",
+      "days": 6,
+      "person": "Bea",
+      "format": "Physical",
+      "jacket": "hills",
+      "lines": [
+        "STILLWATER",
+        "& OTHER",
+        "STORIES"
+      ],
+      "paper": "#b26d4f",
+      "ink": "#fff1d6",
+      "artwork": {
+        "svg": "artwork/stillwater.svg",
+        "png": "artwork/stillwater.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "solitude",
+      "title": "The Gentle Practice of Solitude",
+      "author": "Avery Lane",
+      "genre": "Reflection",
+      "role": "shelf",
+      "days": null,
+      "format": "Physical",
+      "jacket": null,
+      "fallback": "linen",
+      "artwork": {
+        "generatedFallback": true,
+        "style": "linen"
+      }
+    },
+    {
+      "id": "restless-city",
+      "title": "The Restless City",
+      "author": "Robin Vale",
+      "genre": "Fiction",
+      "role": "borrowed",
+      "days": 0,
+      "person": "Kit",
+      "format": "Physical",
+      "jacket": "city",
+      "lines": [
+        "THE",
+        "RESTLESS CITY"
+      ],
+      "paper": "#d7bc8b",
+      "ink": "#423b30",
+      "width": 280,
+      "height": 300,
+      "artwork": {
+        "svg": "artwork/restless-city.svg",
+        "png": "artwork/restless-city.png",
+        "width": 280,
+        "height": 300
+      }
+    },
+    {
+      "id": "paper-garden",
+      "title": "The Paper Garden",
+      "author": "Jules Hart",
+      "genre": "Poetry",
+      "role": "shelf",
+      "days": null,
+      "format": "Digital",
+      "jacket": "leaves",
+      "lines": [
+        "THE",
+        "PAPER",
+        "GARDEN"
+      ],
+      "paper": "#bcb29c",
+      "ink": "#374632",
+      "width": 200,
+      "height": 340,
+      "artwork": {
+        "svg": "artwork/paper-garden.svg",
+        "png": "artwork/paper-garden.png",
+        "width": 200,
+        "height": 340
+      }
+    },
+    {
+      "id": "winterlight",
+      "title": "A Room Full of Winter Light",
+      "author": "Harper Moss",
+      "genre": "Essays",
+      "role": "shelf",
+      "days": null,
+      "format": "Physical",
+      "jacket": null,
+      "fallback": "olive",
+      "artwork": {
+        "generatedFallback": true,
+        "style": "olive"
+      }
+    },
+    {
+      "id": "sunday",
+      "title": "The Long Way to Sunday",
+      "author": "Mira Vale",
+      "genre": "Fiction",
+      "jacket": "hills",
+      "lines": [
+        "THE LONG",
+        "WAY TO",
+        "SUNDAY"
+      ],
+      "paper": "#b26d4f",
+      "ink": "#fff1d6",
+      "artwork": {
+        "svg": "artwork/sunday.svg",
+        "png": "artwork/sunday.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "orchard",
+      "title": "Notes from the Orchard",
+      "author": "Rowan Ellis",
+      "genre": "Essays",
+      "jacket": "botanical",
+      "lines": [
+        "NOTES FROM",
+        "THE",
+        "ORCHARD"
+      ],
+      "paper": "#a9b29b",
+      "ink": "#293d2a",
+      "artwork": {
+        "svg": "artwork/orchard.svg",
+        "png": "artwork/orchard.png",
+        "width": 240,
+        "height": 360
+      }
+    },
+    {
+      "id": "light-falls",
+      "title": "Where the Light Falls",
+      "author": "Ari Bell",
+      "genre": "Poetry",
+      "jacket": null,
+      "fallback": "linen",
+      "artwork": {
+        "generatedFallback": true,
+        "style": "linen"
+      }
+    }
+  ]
+}

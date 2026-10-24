@@ -10,20 +10,26 @@ import androidx.compose.runtime.toMutableStateList
 import com.maktaba.app.BuildConfig
 import com.maktaba.app.R
 import com.google.firebase.Timestamp
+import com.google.firebase.FirebaseException
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Source
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.security.MessageDigest
 import java.time.Instant
+import java.io.IOException
 
 enum class BookStatus { OWNED, LENT_OUT, BORROWED }
+
+enum class BookJacketTone { LINEN, OLIVE }
 
 data class Book(
     val id: String,
@@ -40,7 +46,8 @@ data class Book(
     val description: String = "",
     val binding: String = "",
     val format: BookFormat = BookFormat.UNKNOWN,
-    val physicalEditionIsbn13: String = ""
+    val physicalEditionIsbn13: String = "",
+    val jacketTone: BookJacketTone = BookJacketTone.LINEN
 )
 
 data class NotificationItem(
@@ -51,7 +58,8 @@ data class NotificationItem(
     val message: String,
     val isUnread: Boolean = true,
     val type: String = "",
-    val loanId: String? = null
+    val loanId: String? = null,
+    val createdAt: Instant? = null
 )
 
 data class BookMetadata(
@@ -102,6 +110,23 @@ object LibraryRepository {
     var hasLoadedLoans by mutableStateOf(false)
         private set
 
+    var hasLoadedNotifications by mutableStateOf(false)
+        private set
+    var hasLoadedWishlist by mutableStateOf(false)
+        private set
+    private var catalogError by mutableStateOf<String?>(null)
+    private var copiesError by mutableStateOf<String?>(null)
+    private var lenderLoansError by mutableStateOf<String?>(null)
+    private var borrowerLoansError by mutableStateOf<String?>(null)
+    val libraryError: String? get() = catalogError ?: copiesError
+    val loansError: String? get() = lenderLoansError ?: borrowerLoansError
+    var notificationsError by mutableStateOf<String?>(null)
+        private set
+    var wishlistError by mutableStateOf<String?>(null)
+        private set
+    var deviceTokenError by mutableStateOf<String?>(null)
+        private set
+
     private var catalogLoaded = false
     private var copiesLoaded = false
     private val loanFieldsLoaded = mutableSetOf<String>()
@@ -122,7 +147,7 @@ object LibraryRepository {
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val functions by lazy { FirebaseFunctions.getInstance() }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val listeners = mutableListOf<ListenerRegistration>()
+    private val listeners = mutableMapOf<String, ListenerRegistration>()
     private val catalog = mutableMapOf<String, Map<String, Any?>>()
     private val copies = mutableMapOf<String, Map<String, Any?>>()
     private val loans = mutableMapOf<String, Map<String, Any?>>()
@@ -131,6 +156,8 @@ object LibraryRepository {
     private val pendingBorrowLoans = mutableMapOf<String, ActiveLoan>()
     private val pendingBorrowBooks = mutableMapOf<String, Book>()
     private var currentUid: String? = null
+    private var sessionGeneration = 0L
+    private var tokenJob: Job? = null
 
     fun start(uid: String) {
         if (currentUid == uid && listeners.isNotEmpty()) return
@@ -143,14 +170,33 @@ object LibraryRepository {
         listenToNotifications(uid)
         listenToWishlist(uid)
         if (!BuildConfig.USE_FIREBASE_EMULATORS) {
-            scope.launch {
-                runCatching { registerDeviceToken(uid, FirebaseMessaging.getInstance().token.await()) }
+            val generation = sessionGeneration
+            tokenJob = scope.launch {
+                try {
+                    val token = FirebaseMessaging.getInstance().token.await()
+                    if (generation == sessionGeneration) registerDeviceToken(uid, token)
+                } catch (error: FirebaseException) {
+                    notificationRegistrationFailed(error, generation)
+                } catch (error: IOException) {
+                    notificationRegistrationFailed(error, generation)
+                }
             }
         }
     }
 
+    private fun notificationRegistrationFailed(error: Exception, generation: Long) {
+        if (generation == sessionGeneration) {
+            deviceTokenError = "Notification registration failed. Try again in Settings."
+            Log.e(TAG, "Device notification registration failed", error)
+        }
+    }
+
     fun stop() {
-        listeners.forEach { it.remove() }
+        sessionGeneration++
+        currentUid = null
+        tokenJob?.cancel()
+        tokenJob = null
+        listeners.values.forEach { it.remove() }
         listeners.clear()
         catalog.clear()
         copies.clear()
@@ -165,7 +211,43 @@ object LibraryRepository {
         loanFieldsLoaded.clear()
         hasLoadedLibrary = false
         hasLoadedLoans = false
-        currentUid = null
+        hasLoadedNotifications = false
+        hasLoadedWishlist = false
+        catalogError = null
+        copiesError = null
+        lenderLoansError = null
+        borrowerLoansError = null
+        notificationsError = null
+        wishlistError = null
+        deviceTokenError = null
+    }
+
+    fun retryLoads() {
+        val uid = currentUid ?: return
+        if (catalogError != null) {
+            catalogError = null
+            listenToCatalog()
+        }
+        if (copiesError != null) {
+            copiesError = null
+            listenToCopies(uid)
+        }
+        if (lenderLoansError != null) {
+            lenderLoansError = null
+            listenToLoans(uid, "lenderUid", lenderLoans)
+        }
+        if (borrowerLoansError != null) {
+            borrowerLoansError = null
+            listenToLoans(uid, "borrowerUid", borrowerLoans)
+        }
+        if (notificationsError != null) {
+            notificationsError = null
+            listenToNotifications(uid)
+        }
+        if (wishlistError != null) {
+            wishlistError = null
+            listenToWishlist(uid)
+        }
     }
 
     private fun clearObservableState() {
@@ -180,9 +262,33 @@ object LibraryRepository {
     }
 
     fun bookById(id: String): Book? =
-        books.find { it.id == id } ?: maktabaCollection.find { it.catalogId == id }
+        books.find { it.id == id } ?: pendingBorrowBooks[id] ?:
+            maktabaCollection.find { it.catalogId == id }
 
-    fun activeLoanFor(bookId: String): ActiveLoan? = activeLoans.find { it.bookId == bookId }
+    fun activeLoanFor(bookId: String): ActiveLoan? =
+        activeLoans.find { it.bookId == bookId } ?: pendingBorrowLoans[bookId]
+
+    fun loanFor(bookId: String): ActiveLoan? {
+        activeLoanFor(bookId)?.let { return it }
+        val uid = currentUid ?: return null
+        val entry = loans.entries.filter { it.value["copyId"] == bookId }
+            .maxByOrNull {
+                (it.value["acceptedAt"] as? Timestamp)?.toDate()?.time
+                    ?: (it.value["createdAt"] as? Timestamp)?.toDate()?.time ?: 0L
+            } ?: return null
+        return loanFromData(entry.key, entry.value, uid)
+    }
+
+    fun loanBookById(bookId: String): Book? {
+        bookById(bookId)?.let { return it }
+        val loan = loanFor(bookId) ?: return null
+        val catalogId = loans[loan.id]?.get("catalogBookId") as? String ?: return null
+        val details = catalog[catalogId] ?: return null
+        return bookFromData(
+            bookId, catalogId, details,
+            if (loan.isLender) BookStatus.OWNED else BookStatus.BORROWED
+        )
+    }
 
     fun bookIdForCode(code: String): String? = lendingCodes[code.trim().uppercase()]
     fun pendingInviteById(inviteId: String): PendingLoanInvite? = pendingInvites[inviteId]
@@ -201,6 +307,9 @@ object LibraryRepository {
             publisher = metadata["publisher"] as? String ?: "",
             publishedDate = metadata["publishedDate"] as? String ?: "",
             binding = metadata["binding"] as? String ?: "",
+            pageCount = (metadata["pageCount"] as? Number)?.toInt() ?: 0,
+            genres = (metadata["genres"] as? List<*>)?.filterIsInstance<String>().orEmpty(),
+            description = metadata["description"] as? String ?: "",
             coverUrl = metadata["coverUrl"] as? String ?: "",
             source = source,
             sourceUrl = metadata["sourceUrl"] as? String ?: "",
@@ -234,6 +343,7 @@ object LibraryRepository {
     }
 
     suspend fun startLending(bookId: String, borrowerName: String, dueAtMillis: Long): PendingLoanInvite {
+        val generation = sessionGeneration
         val book = requireNotNull(bookById(bookId)) { "This book is no longer available." }
         require(book.format != BookFormat.DIGITAL) {
             "Digital editions can’t be lent through Book Haven."
@@ -246,6 +356,7 @@ object LibraryRepository {
                 "borrowerDisplayName" to borrowerName
             )
         )
+        check(generation == sessionGeneration && currentUid != null) { "Your session changed. Sign in again." }
         val invite = pendingLoanInviteFromCreateResult(bookId, result)
         lendingCodes[invite.code.value] = bookId
         loanIdsByBook[bookId] = invite.id
@@ -254,11 +365,18 @@ object LibraryRepository {
     }
 
     suspend fun loadPendingInvite(inviteId: String): PendingLoanInvite {
-        pendingInvites[inviteId]?.let { return it }
-        val snapshot = firestore.collection("loanInvites").document(inviteId).get().await()
-        require(snapshot.exists()) { "This lending invitation is no longer available." }
+        val generation = sessionGeneration
+        val snapshot = firestore.collection("loanInvites").document(inviteId).get(Source.SERVER).await()
+        check(generation == sessionGeneration && currentUid != null) { "Your session changed. Sign in again." }
+        if (!snapshot.exists()) {
+            forgetPendingInvite(inviteId)
+            throw InviteUnavailableException("not_found", "This lending invitation is no longer available.")
+        }
         val status = snapshot.getString("status").orEmpty()
-        require(status == "pending") { "This lending invitation is $status." }
+        if (status != "pending") {
+            forgetPendingInvite(inviteId)
+            throw InviteUnavailableException(status, "This lending invitation is ${status.ifBlank { "unavailable" }}.")
+        }
         val code = LoanInviteCode.parse(snapshot.getString("code"))
             ?: error("The lending invitation has an invalid code.")
         val invite = PendingLoanInvite(
@@ -272,10 +390,20 @@ object LibraryRepository {
             status = status
         )
         require(invite.copyId.isNotBlank()) { "The lending invitation is missing its book." }
+        if (!invite.expiresAt.isAfter(Instant.now()) || invite.dueAt?.isAfter(Instant.now()) == false) {
+            forgetPendingInvite(inviteId)
+            throw InviteUnavailableException("expired", "This lending invitation has expired.")
+        }
         pendingInvites[inviteId] = invite
         lendingCodes[code.value] = invite.copyId
         loanIdsByBook[invite.copyId] = inviteId
         return invite
+    }
+
+    private fun forgetPendingInvite(inviteId: String) {
+        val copyId = pendingInvites.remove(inviteId)?.copyId ?: return
+        if (loanIdsByBook[copyId] == inviteId) loanIdsByBook.remove(copyId)
+        lendingCodes.entries.filter { it.value == copyId }.map { it.key }.forEach(lendingCodes::remove)
     }
 
     suspend fun cancelLendingInvite(inviteId: String) {
@@ -290,9 +418,23 @@ object LibraryRepository {
     }
 
     suspend fun resolveLoanCode(code: String): String {
+        val generation = sessionGeneration
         val result = callFunction("resolveLoanInvite", mapOf("inviteCode" to code.trim().uppercase()))
+        check(generation == sessionGeneration && currentUid != null) { "Your session changed. Sign in again." }
+        val canAccept = result["canAccept"] as? Boolean
+            ?: error("This invitation is missing its acceptance status.")
         val copyId = result["copyId"] as? String ?: error("The invitation is missing its book copy.")
         val loanId = result["loanId"] as? String ?: error("The invitation is missing its loan.")
+        val invitationStatus = result["status"] as? String
+        val acceptedSnapshot = if (invitationStatus == "accepted") {
+            firestore.collection("loans").document(loanId).get(Source.SERVER).await().also {
+                check(generation == sessionGeneration && currentUid != null) { "Your session changed. Sign in again." }
+                if (!it.exists()) throw InviteUnavailableException("not_found", "This loan is no longer available.")
+                check(it.getString("copyId") == copyId) { "This invitation does not match its loan." }
+            }
+        } else null
+        val status = invitationLoanStatus(invitationStatus, canAccept, acceptedSnapshot?.getString("status"))
+        val acceptedLoan = acceptedSnapshot?.data?.let { loanFromData(loanId, it, requireNotNull(currentUid)) }
         val catalogId = result["catalogBookId"] as? String ?: ""
         val title = result["title"] as? String ?: "Shared book"
         val authors = result["authors"] as? List<*>
@@ -309,36 +451,41 @@ object LibraryRepository {
             author = author,
             coverRes = R.drawable.ic_book_arch,
             coverUrl = coverUrl,
-            status = BookStatus.BORROWED
+            status = if (acceptedLoan?.isLender == true) {
+                if (status == LoanStatus.RETURNED) BookStatus.OWNED else BookStatus.LENT_OUT
+            } else BookStatus.BORROWED,
+            format = BookFormat.from(
+                result["format"] as? String ?: catalog[catalogId]?.get("format") as? String,
+                result["binding"] as? String ?: catalog[catalogId]?.get("binding") as? String
+            )
         )
         pendingBorrowBooks[copyId] = pendingBook
-        if (books.none { it.id == copyId }) {
-            books.add(pendingBook)
-        }
-        val pendingLoan = ActiveLoan(
+        val pendingLoan = acceptedLoan ?: ActiveLoan(
             id = loanId,
             bookId = copyId,
             counterpartyName = lenderName,
             role = LoanRole.BORROWER,
-            status = LoanStatus.PENDING,
+            status = status,
             dueAt = dueAtMillis?.let(Instant::ofEpochMilli),
-            acceptedAt = null,
-            returnRequestedAt = null,
-            returnedAt = null
+            acceptedAt = (result["acceptedAtMillis"] as? Number)?.toLong()?.let(Instant::ofEpochMilli),
+            returnRequestedAt = (result["returnRequestedAtMillis"] as? Number)?.toLong()?.let(Instant::ofEpochMilli),
+            returnedAt = (result["returnedAtMillis"] as? Number)?.toLong()?.let(Instant::ofEpochMilli),
+            counterpartyUid = result["lenderUid"] as? String ?: ""
         )
         pendingBorrowLoans[copyId] = pendingLoan
-        activeLoans.removeAll { it.bookId == copyId }
-        activeLoans.add(pendingLoan)
         return copyId
     }
 
     suspend fun confirmBorrow(bookId: String, lenderName: String, dueDate: String) {
+        val generation = sessionGeneration
         val loanId = requireNotNull(loanIdsByBook[bookId] ?: activeLoanFor(bookId)?.id) {
             "Resolve a valid lending code first."
         }
         callFunction("acceptLoanInvite", mapOf("loanId" to loanId))
-        pendingBorrowLoans.remove(bookId)
-        pendingBorrowBooks.remove(bookId)
+        check(generation == sessionGeneration && currentUid != null) { "Your session changed. Sign in again." }
+        pendingBorrowLoans[bookId]?.let {
+            pendingBorrowLoans[bookId] = it.copy(status = LoanStatus.ACTIVE)
+        }
     }
 
     suspend fun confirmReturn(bookId: String) {
@@ -353,27 +500,38 @@ object LibraryRepository {
         callFunction(function, mapOf("loanId" to loanId))
     }
 
-    suspend fun sendReminder(bookId: String) {
+    suspend fun sendReminder(bookId: String): Instant? {
         val loanId = requireNotNull(activeLoanFor(bookId)?.id) { "No active loan was found." }
-        callFunction("sendLoanReminder", mapOf("loanId" to loanId))
+        val result = callFunction("sendLoanReminder", mapOf("loanId" to loanId))
+        return (result["nextReminderAllowedAtMillis"] as? Number)?.toLong()?.let(Instant::ofEpochMilli)
     }
 
-    fun markNotificationRead(id: String) {
-        val uid = currentUid ?: return
-        val index = notifications.indexOfFirst { it.id == id }
-        if (index >= 0) {
-            notifications[index] = notifications[index].copy(isUnread = false)
-        }
+    suspend fun markNotificationRead(id: String) {
+        requireNotNull(currentUid) { "Sign in before updating notifications." }
+        val generation = sessionGeneration
         firestore.collection("notifications").document(id).update(
             mapOf(
                 "isRead" to true,
                 "readAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
-        )
+        ).await()
+        if (generation != sessionGeneration) return
+        val index = notifications.indexOfFirst { it.id == id }
+        if (index >= 0) notifications[index] = notifications[index].copy(isUnread = false)
     }
 
     val unreadNotificationCount get() = notifications.count { it.isUnread }
+
+    suspend fun retryDeviceNotifications() {
+        val uid = requireNotNull(currentUid) { "Sign in before enabling notifications." }
+        check(!BuildConfig.USE_FIREBASE_EMULATORS) { "Push delivery is unavailable in the local emulator environment." }
+        val generation = sessionGeneration
+        val token = FirebaseMessaging.getInstance().token.await()
+        check(generation == sessionGeneration) { "Your session changed. Sign in again." }
+        registerDeviceToken(uid, token)
+        if (generation == sessionGeneration) deviceTokenError = null
+    }
 
     suspend fun addToWishlist(catalogId: String) {
         val uid = requireNotNull(currentUid) { "Sign in before updating your wishlist." }
@@ -430,7 +588,8 @@ object LibraryRepository {
             pendingInvites.values.any {
                 it.copyId == bookId &&
                     it.status == "pending" &&
-                    it.expiresAt.isAfter(Instant.now())
+                    it.expiresAt.isAfter(Instant.now()) &&
+                    it.dueAt?.isAfter(Instant.now()) == true
             }
 
     suspend fun removeBook(bookId: String) {
@@ -439,12 +598,17 @@ object LibraryRepository {
     }
 
     private fun listenToCatalog() {
-        listeners += firestore.collection("catalogBooks").addSnapshotListener { snapshot, error ->
+        val generation = sessionGeneration
+        listeners.remove("catalog")?.remove()
+        listeners["catalog"] = firestore.collection("catalogBooks").addSnapshotListener { snapshot, error ->
+            if (generation != sessionGeneration) return@addSnapshotListener
             if (error != null) {
                 Log.e(TAG, "Catalog listener failed", error)
+                catalogError = "Your books couldn’t be loaded. Check your connection and try again."
                 return@addSnapshotListener
             }
             snapshot ?: return@addSnapshotListener
+            catalogError = null
             catalog.clear()
             snapshot.documents.forEach { catalog[it.id] = it.data.orEmpty() }
             Log.d(TAG, "Catalog snapshot: ${catalog.size} books")
@@ -455,13 +619,18 @@ object LibraryRepository {
     }
 
     private fun listenToCopies(uid: String) {
-        listeners += firestore.collection("userBooks").whereEqualTo("ownerId", uid)
+        val generation = sessionGeneration
+        listeners.remove("copies")?.remove()
+        listeners["copies"] = firestore.collection("userBooks").whereEqualTo("ownerId", uid)
             .addSnapshotListener { snapshot, error ->
+                if (generation != sessionGeneration) return@addSnapshotListener
                 if (error != null) {
                     Log.e(TAG, "User books listener failed", error)
+                    copiesError = "Your library couldn’t be loaded. Check your connection and try again."
                     return@addSnapshotListener
                 }
                 snapshot ?: return@addSnapshotListener
+                copiesError = null
                 copies.clear()
                 snapshot.documents.forEach { copies[it.id] = it.data.orEmpty() }
                 Log.d(TAG, "User books snapshot: ${copies.size} copies for $uid")
@@ -475,13 +644,19 @@ object LibraryRepository {
         participantField: String,
         target: MutableMap<String, Map<String, Any?>>
     ) {
-        listeners += firestore.collection("loans").whereEqualTo(participantField, uid)
+        val generation = sessionGeneration
+        listeners.remove(participantField)?.remove()
+        listeners[participantField] = firestore.collection("loans").whereEqualTo(participantField, uid)
             .addSnapshotListener { snapshot, error ->
+                if (generation != sessionGeneration) return@addSnapshotListener
                 if (error != null) {
                     Log.e(TAG, "$participantField loans listener failed", error)
+                    val message = "Your loans couldn’t be loaded. Check your connection and try again."
+                    if (participantField == "lenderUid") lenderLoansError = message else borrowerLoansError = message
                     return@addSnapshotListener
                 }
                 snapshot ?: return@addSnapshotListener
+                if (participantField == "lenderUid") lenderLoansError = null else borrowerLoansError = null
                 target.clear()
                 snapshot.documents.forEach { target[it.id] = it.data.orEmpty() }
                 markLoansLoaded(participantField)
@@ -493,15 +668,21 @@ object LibraryRepository {
     }
 
     private fun listenToNotifications(uid: String) {
-        listeners += firestore.collection("notifications")
+        val generation = sessionGeneration
+        listeners.remove("notifications")?.remove()
+        listeners["notifications"] = firestore.collection("notifications")
             .whereEqualTo("recipientUid", uid)
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
+                if (generation != sessionGeneration) return@addSnapshotListener
                 if (error != null) {
                     Log.e(TAG, "Notifications listener failed", error)
+                    notificationsError = "Notifications couldn’t be loaded. Check your connection and try again."
                     return@addSnapshotListener
                 }
                 snapshot ?: return@addSnapshotListener
+                notificationsError = null
+                hasLoadedNotifications = true
                 notifications.clear()
                 notifications.addAll(snapshot.documents.map { doc ->
                     NotificationItem(
@@ -513,20 +694,27 @@ object LibraryRepository {
                         message = doc.getString("body").orEmpty(),
                         isUnread = doc.getBoolean("isRead") != true,
                         type = doc.getString("type").orEmpty(),
-                        loanId = doc.getString("loanId")
+                        loanId = doc.getString("loanId"),
+                        createdAt = doc.getTimestamp("createdAt")?.toDate()?.toInstant()
                     )
                 })
             }
     }
 
     private fun listenToWishlist(uid: String) {
-        listeners += firestore.collection("users").document(uid).collection("wishlist")
+        val generation = sessionGeneration
+        listeners.remove("wishlist")?.remove()
+        listeners["wishlist"] = firestore.collection("users").document(uid).collection("wishlist")
             .addSnapshotListener { snapshot, error ->
+                if (generation != sessionGeneration) return@addSnapshotListener
                 if (error != null) {
                     Log.e(TAG, "Wishlist listener failed", error)
+                    wishlistError = "Want to Read couldn’t be loaded. Check your connection and try again."
                     return@addSnapshotListener
                 }
                 snapshot ?: return@addSnapshotListener
+                wishlistError = null
+                hasLoadedWishlist = true
                 wishlistCatalogIds.clear()
                 wishlistCatalogIds.addAll(snapshot.documents.map { it.id })
             }
@@ -555,10 +743,7 @@ object LibraryRepository {
                 rebuiltBooks += bookFromData(copyId, catalogId, catalog[catalogId].orEmpty(), BookStatus.BORROWED)
             }
         }
-        pendingBorrowBooks.values.forEach { pending ->
-            if (rebuiltBooks.none { it.id == pending.id }) rebuiltBooks += pending
-        }
-        if (catalog.isNotEmpty() || copies.isNotEmpty()) {
+        if (catalogLoaded && copiesLoaded) {
             books.clear()
             books.addAll(rebuiltBooks)
             Log.d(TAG, "Rebuilt visible library: ${books.size} books")
@@ -566,31 +751,34 @@ object LibraryRepository {
 
         activeLoans.clear()
         activeLoans.addAll(active.mapNotNull { (loanId, loan) ->
-            val copyId = loan["copyId"] as? String ?: return@mapNotNull null
-            val isLender = loan["lenderUid"] == uid
-            val counterpartyName = if (isLender) {
-                loan["borrowerDisplayName"] as? String ?: "Borrower"
-            } else {
-                loan["lenderDisplayName"] as? String ?: "Lender"
-            }
-            val dueAt = loan["dueDate"] as? Timestamp
-            ActiveLoan(
-                id = loanId,
-                bookId = copyId,
-                counterpartyName = counterpartyName,
-                role = if (isLender) LoanRole.LENDER else LoanRole.BORROWER,
-                status = LoanStatus.from(loan["status"] as? String),
-                dueAt = dueAt?.toDate()?.toInstant(),
-                acceptedAt = (loan["acceptedAt"] as? Timestamp)?.toDate()?.toInstant(),
-                returnRequestedAt = (loan["returnRequestedAt"] as? Timestamp)?.toDate()?.toInstant(),
-                returnedAt = (loan["returnedAt"] as? Timestamp)?.toDate()?.toInstant(),
-                returnRequestedById = loan["returnRequestedByUid"] as? String,
-                returnRequestedByCurrentUser = loan["returnRequestedByUid"] == uid
-            )
+            loanFromData(loanId, loan, uid)
         })
-        pendingBorrowLoans.values.forEach { pending ->
-            if (activeLoans.none { it.bookId == pending.bookId }) activeLoans.add(pending)
+        val authoritativeCopyIds = activeLoans.map { it.bookId }.toSet()
+        authoritativeCopyIds.forEach {
+            pendingBorrowLoans.remove(it)
+            pendingBorrowBooks.remove(it)
         }
+    }
+
+    private fun loanFromData(loanId: String, loan: Map<String, Any?>, uid: String): ActiveLoan? {
+        val copyId = loan["copyId"] as? String ?: return null
+        val lender = loan["lenderUid"] == uid
+        return ActiveLoan(
+            id = loanId, bookId = copyId,
+            counterpartyName = (loan[if (lender) "borrowerDisplayName" else "lenderDisplayName"] as? String)
+                ?: if (lender) "Borrower" else "Lender",
+            role = if (lender) LoanRole.LENDER else LoanRole.BORROWER,
+            status = LoanStatus.from(loan["status"] as? String),
+            dueAt = (loan["dueDate"] as? Timestamp)?.toDate()?.toInstant(),
+            acceptedAt = (loan["acceptedAt"] as? Timestamp)?.toDate()?.toInstant(),
+            returnRequestedAt = (loan["returnRequestedAt"] as? Timestamp)?.toDate()?.toInstant(),
+            returnedAt = (loan["returnedAt"] as? Timestamp)?.toDate()?.toInstant(),
+            returnRequestedById = loan["returnRequestedByUid"] as? String,
+            returnRequestedByCurrentUser = loan["returnRequestedByUid"] == uid,
+            counterpartyUid = loan[if (lender) "borrowerUid" else "lenderUid"] as? String ?: "",
+            nextReminderAllowedAt = (loan["lastManualReminderAt"] as? Timestamp)?.toDate()?.toInstant()
+                ?.plusSeconds(6 * 60 * 60)
+        )
     }
 
     private fun rebuildMaktabaCollection() {
@@ -626,7 +814,8 @@ object LibraryRepository {
             ownerId = ownerId,
             status = status,
             genre = (details["genres"] as? List<*>)?.firstOrNull() as? String ?: "",
-            published = (details["publishedYear"] as? Number)?.toInt()?.toString() ?: "",
+            published = (details["publishedYear"] as? Number)?.toInt()?.toString()
+                ?: (details["publishedDate"] as? String).orEmpty(),
             pages = (details["pageCount"] as? Number)?.toInt() ?: 0,
             description = details["description"] as? String ?: "",
             binding = details["binding"] as? String ?: "",

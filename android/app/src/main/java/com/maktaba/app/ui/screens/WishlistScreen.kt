@@ -1,212 +1,144 @@
 package com.maktaba.app.ui.screens
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.maktaba.app.data.Book
-import com.maktaba.app.data.LibraryRepository
-import com.maktaba.app.nav.Routes
+import com.maktaba.app.data.*
 import com.maktaba.app.ui.components.BookCoverImage
-import com.maktaba.app.ui.components.BottomNavTab
-import com.maktaba.app.ui.components.EmptyState
-import com.maktaba.app.ui.components.MaktabaScaffold
-import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.components.navigateToTab
-import com.maktaba.app.ui.theme.BookHavenTheme
-import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
+import com.maktaba.app.ui.theme.SansBody
+import com.maktaba.app.ui.theme.SerifDisplay
 import kotlinx.coroutines.launch
 
-/**
- * The wishlist now reads `LibraryRepository.wishlistCatalogIds`, which the repository has
- * been syncing from Firestore all along while this screen rendered a hard-coded
- * "Your wishlist is empty." It also gains the write path it never had, through the
- * catalogue list below and the heart on Book Detail.
- */
 @Composable
-fun WishlistScreen(navController: NavHostController) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
-    val snackbarHostState = remember { SnackbarHostState() }
+fun WishlistScreen(navController: NavHostController) = WantToReadScreen(navController)
+
+@Composable
+fun WantToReadScreen(navController: NavHostController) {
     val scope = rememberCoroutineScope()
-
-    val wishlist = LibraryRepository.wishlistBooks
-    val hasLoaded = LibraryRepository.hasLoadedLibrary
-
-    fun toggle(book: Book, add: Boolean) {
-        scope.launch {
-            runCatching {
-                if (add) {
-                    LibraryRepository.addToWishlist(book.catalogId)
-                } else {
-                    LibraryRepository.removeFromWishlist(book.catalogId)
+    var removing by remember { mutableStateOf<String?>(null) }
+    var mutationError by remember { mutableStateOf<Throwable?>(null) }
+    CollectionPage(navController, "Want to Read", showBottomBar = false) {
+        WantToReadContent(
+            books = LibraryRepository.wishlistBooks,
+            loaded = LibraryRepository.hasLoadedWishlist && LibraryRepository.hasLoadedLibrary,
+            error = LibraryRepository.wishlistError ?: LibraryRepository.libraryError,
+            onRetry = LibraryRepository::retryLoads,
+            onBook = { navController.collectionRoute("catalogue_book", it) },
+            removingId = removing,
+            onUnsave = { catalogId ->
+                removing = catalogId
+                mutationError = null
+                scope.launch {
+                    try { LibraryRepository.removeFromWishlist(catalogId) }
+                    catch (failure: Exception) { mutationError = failure }
+                    finally { removing = null }
                 }
-            }.onSuccess {
-                snackbarHostState.showSnackbar(
-                    if (add) "Added ${book.title} to your wishlist"
-                    else "Removed ${book.title} from your wishlist"
-                )
-            }.onFailure {
-                snackbarHostState.showSnackbar(
-                    it.localizedMessage ?: "We could not update your wishlist."
-                )
-            }
-        }
-    }
-
-    MaktabaScaffold(
-        selectedTab = BottomNavTab.WISHLIST,
-        onTabSelected = { navController.navigateToTab(it) },
-        snackbarHostState = snackbarHostState,
-        topBar = { ScreenTopBar(title = "Wishlist") }
-    ) { innerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(colors.background)
-        ) {
-            if (hasLoaded && wishlist.isEmpty()) {
-                EmptyState(
-                    modifier = Modifier.weight(1f),
-                    title = "Nothing saved yet",
-                    message = "Star a book from its detail screen and it will wait for you here."
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(spacing.gutter),
-                    verticalArrangement = Arrangement.spacedBy(spacing.sm)
-                ) {
-                    item {
-                        SectionHeading("Saved for later (${wishlist.size})")
-                    }
-                    items(wishlist, key = { "saved-${it.catalogId}" }) { book ->
-                        WishlistRow(
-                            book = book,
-                            saved = true,
-                            onToggle = { toggle(book, add = false) },
-                            onClick = {
-                                navController.navigate(
-                                    Routes.BookDetail.createRoute(book.catalogId)
-                                )
-                            }
-                        )
-                    }
-
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeading(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaktabaTheme.colors.ink,
-        modifier = Modifier
-            .padding(bottom = 4.dp)
-            .semantics { heading() }
-    )
-}
-
-@Composable
-private fun WishlistRow(
-    book: Book,
-    saved: Boolean,
-    onToggle: () -> Unit,
-    onClick: () -> Unit
-) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaktabaShapes.medium)
-            .background(colors.surface)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(spacing.sm),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        BookCoverImage(
-            book = book,
-            contentScale = ContentScale.Crop,
-            decorative = true,
-            modifier = Modifier
-                .width(44.dp)
-                .aspectRatio(0.68f)
-                .clip(MaktabaShapes.cover)
+            },
+            savedReferenceCount = LibraryRepository.wishlistCatalogIds.size
         )
-        Spacer(Modifier.width(spacing.sm))
-        Column(Modifier.weight(1f)) {
-            Text(
-                book.title,
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                book.author,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        IconButton(onClick = onToggle) {
-            Icon(
-                if (saved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = if (saved) {
-                    "Remove ${book.title} from wishlist"
-                } else {
-                    "Add ${book.title} to wishlist"
-                },
-                tint = if (saved) colors.primary else colors.inkMuted
-            )
-        }
+        mutationError?.let { CollectionNote(collectionErrorMessage(it)) }
     }
 }
 
-@Preview(showBackground = true, name = "Wishlist")
 @Composable
-private fun WishlistScreenPreview() {
-    BookHavenTheme { WishlistScreen(navController = rememberNavController()) }
+fun WantToReadContent(
+    books: List<Book>,
+    loaded: Boolean,
+    error: String?,
+    onRetry: () -> Unit,
+    onBook: (String) -> Unit,
+    removingId: String? = null,
+    onUnsave: ((String) -> Unit)? = null,
+    savedReferenceCount: Int = books.size
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 5.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Lock, null, Modifier.size(11.dp), tint = MaktabaTheme.colors.inkMuted)
+            Spacer(Modifier.width(4.dp))
+            Text("Private · Pinned", Modifier.weight(1f), color = MaktabaTheme.colors.inkMuted,
+                style = TextStyle(fontFamily = SansBody, fontSize = 9.sp, lineHeight = 14.4.sp,
+                    lineHeightStyle = CollectionLineHeight))
+            if (loaded && error == null) Text("$savedReferenceCount books",
+                color = MaktabaTheme.colors.inkMuted,
+                style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 12.sp,
+                    lineHeightStyle = CollectionLineHeight))
+        }
+        when {
+            error != null -> {
+                CollectionNote(error)
+                OutlinedButton(onClick = onRetry) { Text("Retry") }
+            }
+            !loaded -> {
+                CircularProgressIndicator()
+                CollectionNote("Loading saved titles…")
+            }
+            books.isEmpty() && savedReferenceCount > 0 -> {
+                CollectionHeading("Saved title details unavailable")
+                CollectionNote("Your $savedReferenceCount saved references are preserved. Their catalogue details could not be found.")
+                OutlinedButton(onClick = onRetry) { Text("Retry titles") }
+            }
+            books.isEmpty() -> {
+                CollectionHeading("Room for your next read")
+                CollectionNote("Save a catalogue title from Book Detail and it will wait for you here. Want to Read is always private.")
+            }
+            else -> {
+                if (savedReferenceCount > books.size)
+                    CollectionNote("${savedReferenceCount - books.size} more saved references have unavailable catalogue details. Your saved list is unchanged.")
+                books.forEach { book ->
+                    Surface(shape = RoundedCornerShape(12.dp),
+                        color = MaktabaTheme.colors.surface,
+                        border = BorderStroke(1.dp, MaktabaTheme.colors.divider)) {
+                        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 9.dp, top = 14.dp, bottom = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(Modifier.weight(1f).clickable { onBook(book.catalogId) },
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                BookCoverImage(book, Modifier.width(60.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(5.dp)),
+                                    ContentScale.Fit, decorative = true)
+                                Column(Modifier.weight(1f)) {
+                                    Text(book.title, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                        style = TextStyle(fontFamily = SerifDisplay, fontSize = 17.sp, lineHeight = 21.25.sp,
+                                            lineHeightStyle = CollectionLineHeight))
+                                    Spacer(Modifier.height(7.dp))
+                                    Text(book.author, style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 15.sp,
+                                        lineHeightStyle = CollectionLineHeight),
+                                        color = MaktabaTheme.colors.inkMuted)
+                                    Spacer(Modifier.height(9.dp))
+                                    Text(book.genre.ifBlank { "Saved for later" },
+                                        style = TextStyle(fontFamily = SansBody, fontSize = 9.sp, lineHeight = 13.5.sp,
+                                            lineHeightStyle = CollectionLineHeight),
+                                        color = MaktabaTheme.colors.inkMuted)
+                                }
+                            }
+                            if (onUnsave != null) IconButton(
+                                onClick = { onUnsave(book.catalogId) }, enabled = removingId == null,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(Icons.Filled.Favorite, "Unsave ${book.title}",
+                                    Modifier.size(18.dp), tint = MaktabaTheme.colors.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

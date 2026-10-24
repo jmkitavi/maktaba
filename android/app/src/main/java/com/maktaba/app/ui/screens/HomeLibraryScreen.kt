@@ -1,11 +1,13 @@
 package com.maktaba.app.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,8 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as lazyRowItems
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -24,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
@@ -34,9 +37,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -44,89 +46,144 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.R
-import com.maktaba.app.data.BookStatus
+import com.maktaba.app.data.Book
+import com.maktaba.app.data.ActiveLoan
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverCard
 import com.maktaba.app.ui.components.BookGridSkeleton
 import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.EmptyState
+import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.navigateToTab
 import com.maktaba.app.ui.theme.BookHavenTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
-import com.maktaba.app.util.LoanTimeFormatter
-import com.maktaba.app.util.LoanUrgency
+import java.time.Clock
 
-private enum class LibraryFilter(val label: String) {
-    ALL("All"),
-    OWNED("On my shelf"),
-    LENT_OUT("Lent out"),
-    BORROWED("Borrowed"),
-    OVERDUE("Overdue")
+@Composable
+fun HomeLibraryScreen(navController: NavHostController) {
+    HomeLibraryContent(
+        books = LibraryRepository.books,
+        loans = LibraryRepository.activeLoans,
+        hasLoaded = LibraryRepository.hasLoadedLibrary,
+        error = LibraryRepository.libraryError,
+        loansLoaded = LibraryRepository.hasLoadedLoans,
+        loansError = LibraryRepository.loansError,
+        unreadCount = LibraryRepository.unreadNotificationCount,
+        onBook = { navController.navigate(Routes.BookDetail.createRoute(it.id)) },
+        onAdd = { navController.navigate(Routes.AddBook.route) },
+        onBorrow = { navController.navigate(Routes.ScanEnterCode.route) },
+        onNotifications = { navController.navigate(Routes.Notifications.route) },
+        onTab = { navController.navigateToTab(it) },
+        onRetry = LibraryRepository::retryLoads
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeLibraryScreen(navController: NavHostController) {
+fun HomeLibraryContent(
+    books: List<Book>,
+    loans: List<ActiveLoan>,
+    hasLoaded: Boolean,
+    error: String?,
+    loansLoaded: Boolean,
+    loansError: String?,
+    unreadCount: Int,
+    onBook: (Book) -> Unit,
+    onAdd: () -> Unit,
+    onBorrow: () -> Unit,
+    onNotifications: () -> Unit,
+    onTab: (BottomNavTab) -> Unit,
+    onRetry: () -> Unit,
+    initialFilter: LibraryFilter = LibraryFilter.ALL,
+    initialQuery: String = "",
+    clock: Clock = Clock.systemDefaultZone()
+) {
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
+    val narrowLayout = LocalConfiguration.current.screenWidthDp <= 339
+    val columns = if (narrowLayout) 2 else 3
+    val gutter = if (narrowLayout) 16.dp else spacing.gutter
     val focusManager = LocalFocusManager.current
 
-    var selectedFilter by remember { mutableStateOf(LibraryFilter.ALL) }
+    var selectedFilter by rememberSaveable { mutableStateOf(initialFilter) }
     var showAddSheet by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
     val sheetState = rememberModalBottomSheetState()
 
-    val books = LibraryRepository.books
-    val hasLoaded = LibraryRepository.hasLoadedLibrary
     val normalizedQuery = searchQuery.trim().lowercase()
-
-    val filteredBooks = books.filter { book ->
-        val loan = LibraryRepository.activeLoanFor(book.id)
-        val matchesFilter = when (selectedFilter) {
-            LibraryFilter.ALL -> true
-            LibraryFilter.OWNED -> book.status == BookStatus.OWNED
-            LibraryFilter.LENT_OUT -> book.status == BookStatus.LENT_OUT
-            LibraryFilter.BORROWED -> book.status == BookStatus.BORROWED
-            LibraryFilter.OVERDUE ->
-                loan != null && LoanTimeFormatter.urgency(loan.dueAt) == LoanUrgency.OVERDUE
-        }
-        val matchesSearch = normalizedQuery.isEmpty() ||
-            book.title.lowercase().contains(normalizedQuery) ||
-            book.author.lowercase().contains(normalizedQuery) ||
-            book.genre.lowercase().contains(normalizedQuery)
-        matchesFilter && matchesSearch
-    }
-
-    val unreadCount = LibraryRepository.unreadNotificationCount
+    val filteredBooks = filterLibraryBooks(books, loans, selectedFilter, searchQuery, clock)
+    val feedError = error ?: loansError
+    val phase = libraryFeedPhase(
+        hasLoaded && loansLoaded, feedError, books.size, filteredBooks.size
+    )
 
     MaktabaScaffold(
         selectedTab = BottomNavTab.LIBRARY,
-        onTabSelected = { navController.navigateToTab(it) },
+        onTabSelected = onTab,
+        topBar = {
+            ScreenTopBar(
+                title = "My Library",
+                branded = true,
+                illustrationRes = R.drawable.illus_home_icon,
+                actions = {
+                    BadgedBox(badge = {
+                        if (unreadCount > 0) {
+                            Badge(
+                                modifier = Modifier.height(13.dp).widthIn(min = 13.dp),
+                                containerColor = colors.primary, contentColor = colors.onPrimary
+                            ) {
+                                Text(
+                                    unreadCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 11.sp)
+                                )
+                            }
+                        }
+                    }) {
+                        IconButton(
+                            onClick = onNotifications,
+                            modifier = Modifier.size(44.dp).border(1.dp, colors.divider, CircleShape)
+                        ) {
+                            Icon(
+                                Icons.Filled.NotificationsNone,
+                                contentDescription = if (unreadCount > 0) {
+                                    "Notifications, $unreadCount unread"
+                                } else "Notifications",
+                                tint = colors.ink,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddSheet = true },
@@ -144,161 +201,140 @@ fun HomeLibraryScreen(navController: NavHostController) {
                 .padding(innerPadding)
                 .background(colors.background)
         ) {
-            Row(
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = spacing.gutter)
-                    .padding(top = spacing.sm, bottom = spacing.xs),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.illus_home_icon),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.height(22.dp)
-                )
-                Spacer(Modifier.width(spacing.sm))
-                Text(
-                    "My library",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = colors.ink,
-                    modifier = Modifier.weight(1f).semantics { heading() }
-                )
-                IconButton(
-                    onClick = { navController.navigate(Routes.Notifications.route) }
-                ) {
-                    BadgedBox(
-                        badge = {
-                            if (unreadCount > 0) {
-                                Badge(
-                                    containerColor = colors.primary,
-                                    contentColor = colors.onPrimary
-                                ) { Text(unreadCount.toString()) }
-                            }
-                        }
+                    .padding(horizontal = gutter)
+                    .heightIn(min = 44.dp)
+                    .clip(MaktabaShapes.small)
+                    .border(1.dp, colors.divider, MaktabaShapes.small)
+                    .background(colors.backgroundElevated)
+                    .semantics { contentDescription = "Search books, authors, genres" },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.ink),
+                cursorBrush = SolidColor(colors.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                    onSearch = { focusManager.clearFocus() }
+                ),
+                decorationBox = { innerField ->
+                    Row(
+                        Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            Icons.Filled.NotificationsNone,
-                            contentDescription = if (unreadCount > 0) {
-                                "Notifications, $unreadCount unread"
-                            } else {
-                                "Notifications"
-                            },
-                            tint = colors.ink
+                            Icons.Filled.Search, contentDescription = null,
+                            tint = colors.inkMuted, modifier = Modifier.size(18.dp)
+                        )
+                        Box(Modifier.weight(1f)) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    "Search books, authors, genres",
+                                    style = MaterialTheme.typography.bodySmall, color = colors.inkMuted
+                                )
+                            }
+                            innerField()
+                        }
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Filled.Close, "Clear search", tint = colors.inkMuted)
+                            }
+                        }
+                    }
+                }
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = gutter),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                lazyRowItems(LibraryFilter.values().toList()) { filter ->
+                    val isSelected = filter == selectedFilter
+                    Column(
+                        Modifier.width(IntrinsicSize.Max).selectable(
+                            selected = isSelected, role = Role.Tab,
+                            onClick = { selectedFilter = filter }
+                        ).padding(top = 10.dp)
+                    ) {
+                        Text(
+                            filter.label, style = MaterialTheme.typography.labelSmall,
+                            color = if (isSelected) colors.primary else colors.inkSoft
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Box(
+                            Modifier.fillMaxWidth().height(2.dp)
+                                .background(if (isSelected) colors.primary else androidx.compose.ui.graphics.Color.Transparent)
                         )
                     }
                 }
             }
 
-            TextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = spacing.gutter)
-                    .heightIn(min = 52.dp)
-                    .clip(MaktabaShapes.pill),
-                placeholder = {
-                    Text("Search books, authors, genres", style = MaterialTheme.typography.bodyMedium)
-                },
-                leadingIcon = {
-                    Icon(Icons.Filled.Search, contentDescription = null, tint = colors.inkMuted)
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Clear search",
-                                tint = colors.inkMuted
-                            )
-                        }
-                    }
-                },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                    onSearch = { focusManager.clearFocus() }
-                ),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = colors.surface,
-                    unfocusedContainerColor = colors.surface,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    focusedTextColor = colors.ink,
-                    unfocusedTextColor = colors.ink,
-                    cursorColor = colors.primary,
-                    focusedPlaceholderColor = colors.inkMuted,
-                    unfocusedPlaceholderColor = colors.inkMuted
-                )
-            )
-
-            Spacer(Modifier.height(spacing.sm))
-
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = spacing.gutter),
-                horizontalArrangement = Arrangement.spacedBy(spacing.xs)
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = colors.divider)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = gutter).padding(top = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                lazyRowItems(LibraryFilter.values().toList()) { filter ->
-                    val isSelected = filter == selectedFilter
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { selectedFilter = filter },
-                        label = {
-                            Text(filter.label, style = MaterialTheme.typography.labelMedium)
-                        },
-                        shape = MaktabaShapes.pill,
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = colors.chipUnselected,
-                            labelColor = colors.onChipUnselected,
-                            selectedContainerColor = colors.chipSelected,
-                            selectedLabelColor = colors.onChipSelected
-                        ),
-                        border = null
-                    )
-                }
-            }
-
-            if (normalizedQuery.isNotEmpty() && hasLoaded) {
-                Spacer(Modifier.height(spacing.xs))
                 Text(
-                    "${filteredBooks.size} of ${books.size} books",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.inkMuted,
-                    modifier = Modifier.padding(horizontal = spacing.gutter)
+                    "THE COLLECTION",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.SemiBold
+                    ),
+                    color = colors.ink
+                )
+                Text(
+                    if (feedError != null) "Unavailable" else if (!hasLoaded) "Loading…" else if (normalizedQuery.isNotEmpty() ||
+                        selectedFilter != LibraryFilter.ALL) {
+                        "${filteredBooks.size} of ${books.size} books"
+                    } else "${books.size} books",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp, fontWeight = FontWeight.Normal
+                    ),
+                    color = colors.inkMuted
                 )
             }
 
-            Spacer(Modifier.height(spacing.sm))
+            Spacer(Modifier.height(17.dp))
 
             when {
-                // Until the first Firestore snapshot lands we genuinely do not know whether
-                // the shelf is empty, so we must not claim that it is.
-                !hasLoaded -> BookGridSkeleton(
+                phase == LibraryFeedPhase.ERROR -> EmptyState(
                     modifier = Modifier.weight(1f),
+                    title = "Your library could not load",
+                    message = feedError.orEmpty(),
+                    primaryLabel = "Try again",
+                    onPrimary = onRetry
+                )
+
+                phase == LibraryFeedPhase.LOADING -> BookGridSkeleton(
+                    modifier = Modifier.weight(1f),
+                    columns = columns,
                     contentPadding = PaddingValues(
-                        start = spacing.md,
-                        end = spacing.md,
-                        top = spacing.xxs,
+                        start = gutter,
+                        end = gutter,
+                        top = 0.dp,
                         bottom = 96.dp
                     )
                 )
 
-                books.isEmpty() -> EmptyState(
+                phase == LibraryFeedPhase.EMPTY -> EmptyState(
                     modifier = Modifier.weight(1f),
-                    illustrationRes = R.drawable.illus_onboarding,
+                    illustrationRes = R.drawable.illus_home_icon,
                     title = "Your shelf is empty",
                     message = "Scan a barcode to catalogue a book you own, or enter a lending " +
                         "code to claim one a friend is passing to you.",
                     primaryLabel = "Add your first book",
-                    onPrimary = { navController.navigate(Routes.AddBook.route) },
+                    onPrimary = onAdd,
                     secondaryLabel = "Borrow with a code",
-                    onSecondary = { navController.navigate(Routes.ScanEnterCode.route) }
+                    onSecondary = onBorrow
                 )
 
-                filteredBooks.isEmpty() -> EmptyState(
+                phase == LibraryFeedPhase.NO_RESULTS -> EmptyState(
                     modifier = Modifier.weight(1f),
                     title = if (normalizedQuery.isNotEmpty()) "No matches" else "Nothing here yet",
                     message = if (normalizedQuery.isNotEmpty()) {
@@ -320,27 +356,26 @@ fun HomeLibraryScreen(navController: NavHostController) {
                 )
 
                 else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(columns),
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(
-                        start = spacing.md,
-                        end = spacing.md,
-                        top = spacing.xxs,
+                        start = gutter,
+                        end = gutter,
+                        top = 0.dp,
                         // Clears the floating action button, which used to sit on top of
                         // the last row of covers.
                         bottom = 96.dp
                     ),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(if (narrowLayout) 14.dp else 11.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (narrowLayout) 24.dp else 22.dp)
                 ) {
                     items(filteredBooks, key = { it.id }) { book ->
                         BookCoverCard(
                             book = book,
-                            loan = LibraryRepository.activeLoanFor(book.id),
+                            loan = loans.firstOrNull { it.bookId == book.id },
+                            clock = clock,
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                navController.navigate(Routes.BookDetail.createRoute(book.id))
-                            }
+                            onClick = { onBook(book) }
                         )
                     }
                 }
@@ -379,7 +414,7 @@ fun HomeLibraryScreen(navController: NavHostController) {
                         colors = ListItemDefaults.colors(containerColor = colors.backgroundElevated),
                         modifier = Modifier.clickable {
                             showAddSheet = false
-                            navController.navigate(Routes.AddBook.route)
+                            onAdd()
                         }
                     )
                     ListItem(
@@ -397,7 +432,7 @@ fun HomeLibraryScreen(navController: NavHostController) {
                         colors = ListItemDefaults.colors(containerColor = colors.backgroundElevated),
                         modifier = Modifier.clickable {
                             showAddSheet = false
-                            navController.navigate(Routes.ScanEnterCode.route)
+                            onBorrow()
                         }
                     )
                 }

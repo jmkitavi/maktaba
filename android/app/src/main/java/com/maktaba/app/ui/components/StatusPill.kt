@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ScheduleSend
 import androidx.compose.material.icons.filled.CallReceived
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.maktaba.app.data.BookStatus
 import com.maktaba.app.ui.theme.MaktabaColors
 import com.maktaba.app.ui.theme.MaktabaShapes
@@ -56,11 +58,11 @@ fun statusVisuals(
     }
     return when (status) {
         BookStatus.OWNED ->
-            StatusVisuals("On your shelf", Icons.Filled.CheckCircle, colors.success, colors.successContainer)
+            StatusVisuals("On my shelf", Icons.AutoMirrored.Outlined.MenuBook, colors.inkMuted, colors.surfaceAlt)
         BookStatus.LENT_OUT ->
-            StatusVisuals("Lent out", Icons.Filled.CallMade, colors.primary, colors.chipUnselected)
+            StatusVisuals("Lent out", Icons.Filled.CallMade, colors.warning, colors.warningContainer)
         BookStatus.BORROWED ->
-            StatusVisuals("Borrowed", Icons.Filled.CallReceived, colors.accent, colors.chipUnselected)
+            StatusVisuals("Borrowed", Icons.Filled.CallReceived, colors.accent, colors.successContainer)
     }
 }
 
@@ -83,14 +85,14 @@ fun StatusPill(
     /** True when a parent already announces this state to screen readers. */
     decorative: Boolean = false
 ) {
-    val shape = MaktabaShapes.pill
+    val shape = if (compact) RoundedCornerShape(4.dp) else MaktabaShapes.small
     Row(
         modifier = modifier
             .clip(shape)
             .background(visuals.container)
             .padding(
-                horizontal = if (compact) 8.dp else 12.dp,
-                vertical = if (compact) 3.dp else 6.dp
+                horizontal = if (compact) 4.dp else 12.dp,
+                vertical = if (compact) 2.dp else 6.dp
             )
             .then(if (decorative) Modifier.clearAndSetSemantics {} else Modifier),
         verticalAlignment = Alignment.CenterVertically
@@ -99,13 +101,13 @@ fun StatusPill(
             visuals.icon,
             contentDescription = null,
             tint = visuals.content,
-            modifier = Modifier.size(if (compact) 12.dp else 15.dp)
+            modifier = Modifier.size(if (compact) 10.dp else 15.dp)
         )
-        Spacer(Modifier.width(if (compact) 4.dp else 6.dp))
+        Spacer(Modifier.width(if (compact) 3.dp else 6.dp))
         Text(
             visuals.label,
             color = visuals.content,
-            style = if (compact) MaterialTheme.typography.labelSmall
+            style = if (compact) MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, lineHeight = 12.6.sp)
             else MaterialTheme.typography.labelMedium
         )
     }

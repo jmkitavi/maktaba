@@ -37,19 +37,19 @@ private fun sans(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
  * different title sizes in the first place.
  */
 val MaktabaTypography = Typography(
-    displayLarge = serif(34, 40, FontWeight.Bold),
-    displayMedium = serif(30, 36, FontWeight.Bold),
-    displaySmall = serif(28, 34, FontWeight.Bold),
-    headlineLarge = serif(26, 32, FontWeight.Bold),
-    headlineMedium = serif(24, 30, FontWeight.Bold),
-    headlineSmall = serif(22, 28, FontWeight.Bold),
-    titleLarge = serif(20, 26, FontWeight.Bold),
-    titleMedium = serif(18, 24, FontWeight.SemiBold),
-    titleSmall = serif(16, 22, FontWeight.SemiBold),
+    displayLarge = serif(34, 40, FontWeight.Normal),
+    displayMedium = serif(31, 35, FontWeight.Normal),
+    displaySmall = serif(28, 34, FontWeight.Normal),
+    headlineLarge = serif(26, 30, FontWeight.Normal),
+    headlineMedium = serif(24, 30, FontWeight.Normal),
+    headlineSmall = serif(22, 28, FontWeight.Normal),
+    titleLarge = serif(20, 26, FontWeight.Normal),
+    titleMedium = serif(18, 24, FontWeight.Normal),
+    titleSmall = serif(16, 22, FontWeight.Normal),
     bodyLarge = sans(16, 22),
     bodyMedium = sans(14, 20),
     bodySmall = sans(12, 16),
-    labelLarge = sans(15, 20, FontWeight.Medium),
+    labelLarge = sans(12, 18, FontWeight.Medium),
     labelMedium = sans(13, 18, FontWeight.Medium),
     labelSmall = sans(11, 15, FontWeight.Medium)
 )

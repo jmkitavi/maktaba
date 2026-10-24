@@ -16,11 +16,17 @@ android {
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        val emulatorFlag = providers.gradleProperty("useFirebaseEmulators").orNull ?: "false"
+        require(emulatorFlag == "true" || emulatorFlag == "false") {
+            "useFirebaseEmulators must be exactly true or false."
+        }
         buildConfigField(
             "boolean",
             "USE_FIREBASE_EMULATORS",
-            providers.gradleProperty("useFirebaseEmulators").orNull ?: "false"
+            emulatorFlag
         )
+        manifestPlaceholders["firebaseMessagingAutoInitEnabled"] = (emulatorFlag == "false").toString()
+        manifestPlaceholders["firebaseEmulatorCleartext"] = emulatorFlag
     }
 
     compileOptions {

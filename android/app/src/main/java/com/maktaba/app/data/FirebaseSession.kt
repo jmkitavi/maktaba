@@ -1,5 +1,7 @@
 package com.maktaba.app.data
 
+import android.util.Log
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.userProfileChangeRequest
@@ -13,6 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
+import java.io.IOException
 
 object FirebaseSession {
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
@@ -58,13 +63,23 @@ object FirebaseSession {
     fun signOut() {
         val uid = auth.currentUser?.uid
         scope.launch {
-            if (uid != null) {
-                runCatching {
-                    LibraryRepository.unregisterDeviceToken(uid, FirebaseMessaging.getInstance().token.await())
+            try {
+                if (uid != null && !BuildConfig.USE_FIREBASE_EMULATORS) {
+                    withTimeout(3_000) {
+                        LibraryRepository.unregisterDeviceToken(uid, FirebaseMessaging.getInstance().token.await())
+                    }
                 }
+            } catch (error: FirebaseException) {
+                Log.w("FirebaseSession", "Could not unregister notifications while signing out", error)
+            } catch (error: IOException) {
+                Log.w("FirebaseSession", "Could not unregister notifications while signing out", error)
+            } catch (error: TimeoutCancellationException) {
+                Log.w("FirebaseSession", "Notification cleanup timed out while signing out", error)
+            } finally {
+                LibraryRepository.stop()
+                CollectionsRepository.stop()
+                auth.signOut()
             }
-            LibraryRepository.stop()
-            auth.signOut()
         }
     }
 

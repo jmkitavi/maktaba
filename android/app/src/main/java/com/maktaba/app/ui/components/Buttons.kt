@@ -29,7 +29,7 @@ import com.maktaba.app.ui.theme.MaktabaTheme
 
 enum class ButtonTone { PRIMARY, SECONDARY, SUCCESS, DESTRUCTIVE }
 
-private val ButtonHeight = 56.dp
+private val ButtonHeight = 48.dp
 
 @Composable
 fun MaktabaButton(
@@ -44,13 +44,14 @@ fun MaktabaButton(
 ) {
     val colors = MaktabaTheme.colors
     val active = enabled && !loading
-    val shape = MaktabaShapes.pill
-    val fill = when (tone) {
-        ButtonTone.PRIMARY -> Brush.verticalGradient(listOf(colors.primary, colors.primaryDark))
-        ButtonTone.SECONDARY -> Brush.verticalGradient(listOf(colors.secondary, colors.secondary))
-        ButtonTone.SUCCESS -> Brush.verticalGradient(listOf(colors.accent, colors.accent))
-        ButtonTone.DESTRUCTIVE -> Brush.verticalGradient(listOf(colors.danger, colors.danger))
+    val shape = MaktabaShapes.button
+    val fillColors = when (tone) {
+        ButtonTone.PRIMARY -> listOf(colors.primary, colors.primaryDark)
+        ButtonTone.SECONDARY -> listOf(colors.secondary, colors.secondary)
+        ButtonTone.SUCCESS -> listOf(colors.accent, colors.accent)
+        ButtonTone.DESTRUCTIVE -> listOf(colors.danger, colors.danger)
     }
+    val fill = Brush.verticalGradient(fillColors)
     val content = when (tone) {
         ButtonTone.PRIMARY -> colors.onPrimary
         ButtonTone.SECONDARY -> colors.onSecondary
@@ -58,14 +59,14 @@ fun MaktabaButton(
         ButtonTone.DESTRUCTIVE -> colors.onDanger
     }
     val disabledFill = Brush.verticalGradient(
-        listOf(colors.inkMuted.copy(alpha = 0.45f), colors.inkMuted.copy(alpha = 0.55f))
+        fillColors.map { it.copy(alpha = 0.55f) }
     )
     Button(
         onClick = onClick,
         enabled = active,
         modifier = modifier
             .fillMaxWidth()
-            .height(ButtonHeight)
+            .defaultMinSize(minHeight = ButtonHeight)
             .clip(shape)
             .background(if (active) fill else disabledFill)
             .semantics { if (loading) stateDescription = "Loading" },
@@ -152,7 +153,7 @@ fun OutlinedPillButton(
         onClick = onClick,
         enabled = enabled && !loading,
         modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = ButtonHeight),
-        shape = MaktabaShapes.pill
+        shape = MaktabaShapes.button
     ) {
         if (loading) {
             CircularProgressIndicator(

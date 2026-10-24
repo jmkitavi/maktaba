@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.runtime.SideEffect
 import androidx.core.view.WindowCompat
 import android.app.Activity
+import com.maktaba.app.data.AppAppearance
+import com.maktaba.app.data.DevicePreferences
 
 /**
  * Entry point for the design system. `MaktabaTheme.colors` and `MaktabaTheme.spacing` are
@@ -75,7 +77,11 @@ private fun materialSchemeFrom(colors: MaktabaColors) = if (colors.isDark) {
 
 @Composable
 fun BookHavenTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = when (DevicePreferences.appearance) {
+        AppAppearance.SYSTEM -> isSystemInDarkTheme()
+        AppAppearance.LIGHT -> false
+        AppAppearance.DARK -> true
+    },
     content: @Composable () -> Unit
 ) {
     val colors = if (darkTheme) MaktabaDarkColors else MaktabaLightColors

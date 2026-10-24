@@ -1,74 +1,54 @@
 package com.maktaba.app.ui.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
+import com.maktaba.app.data.Book
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.InviteUnavailableException
 import com.maktaba.app.data.PendingLoanInvite
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.ConfirmationDialog
-import com.maktaba.app.ui.components.GreenButton
-import com.maktaba.app.ui.components.LoadingState
-import com.maktaba.app.ui.components.MaktabaCard
-import com.maktaba.app.ui.components.MaktabaScaffold
-import com.maktaba.app.ui.components.QrCodeImage
-import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.components.TextActionButton
-import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.BookHavenTheme
+import com.maktaba.app.ui.components.*
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/** The scheme registered in AndroidManifest, so the QR and the shared link both resolve. */
 fun lendingLinkFor(code: String) = "maktaba://loan?code=$code"
+
+data class ShareLendingCodeState(
+    val book: Book,
+    val invite: PendingLoanInvite,
+    val now: Instant,
+    val working: Boolean = false,
+    val error: String? = null,
+    val feedback: String? = null,
+    val borrowerLabel: String? = null
+)
 
 @Composable
 fun ShareLendingCodeScreen(
@@ -76,268 +56,244 @@ fun ShareLendingCodeScreen(
     inviteId: String,
     loadInvite: suspend (String) -> PendingLoanInvite = LibraryRepository::loadPendingInvite
 ) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val clock = remember { Clock.systemDefaultZone() }
+    val borrowerLabel = remember(inviteId) {
+        navController.previousBackStackEntry?.savedStateHandle?.get<String>(inviteBorrowerLabelKey(inviteId))
+    }
+    var invite by remember(inviteId) { mutableStateOf<PendingLoanInvite?>(null) }
+    var bookSnapshot by remember(inviteId) { mutableStateOf<Book?>(null) }
+    var loading by remember(inviteId) { mutableStateOf(true) }
+    var loadError by remember(inviteId) { mutableStateOf<String?>(null) }
+    var unavailable by remember(inviteId) { mutableStateOf<InviteUnavailableException?>(null) }
+    var actionError by remember(inviteId) { mutableStateOf<String?>(null) }
+    var feedback by remember(inviteId) { mutableStateOf<String?>(null) }
+    var working by remember(inviteId) { mutableStateOf(false) }
+    var cancelled by remember(inviteId) { mutableStateOf(false) }
+    var confirmCancel by remember(inviteId) { mutableStateOf(false) }
+    var retry by remember(inviteId) { mutableIntStateOf(0) }
+    val now by produceState(clock.instant(), inviteId) {
+        while (true) { value = clock.instant(); delay(1_000) }
+    }
 
-    var invite by remember(inviteId) { mutableStateOf(LibraryRepository.pendingInviteById(inviteId)) }
-    var loading by remember(inviteId) { mutableStateOf(invite == null) }
-    var error by remember(inviteId) { mutableStateOf<String?>(null) }
-    var cancelling by remember { mutableStateOf(false) }
-    var confirmCancel by remember { mutableStateOf(false) }
+    suspend fun verifiedInvite(): PendingLoanInvite {
+        val refreshed = loadInvite(inviteId)
+        val issued = invite
+        if (issued != null && !sameIssuedInvite(issued, refreshed)) {
+            throw InviteUnavailableException("changed", "This invitation changed. Go back and generate a new code.")
+        }
+        if (!inviteIsPending(refreshed, clock.instant())) {
+            throw InviteUnavailableException(refreshed.status.takeUnless { it == "pending" } ?: "expired",
+                "This invitation has expired, been used, or been cancelled. Generate a new code.")
+        }
+        return refreshed
+    }
 
-    LaunchedEffect(inviteId) {
-        if (invite == null) {
-            runCatching { loadInvite(inviteId) }
-                .onSuccess { invite = it }
-                .onFailure { error = it.localizedMessage ?: "This invitation is unavailable." }
+    LaunchedEffect(inviteId, retry) {
+        loading = invite == null
+        loadError = null
+        unavailable = null
+        do {
+            val result = handoffAttempt { verifiedInvite() }
+            result.onSuccess { if (invite == null) invite = it }
+                .onFailure {
+                    if (it is InviteUnavailableException) unavailable = it
+                    else loadError = it.localizedMessage ?: "Could not verify this invitation."
+                }
             loading = false
-        }
+            if (result.isFailure) break
+            delay(15_000)
+        } while (!cancelled)
     }
 
-    // Expiry has to be evaluated against a clock that advances. Reading Instant.now()
-    // once at composition meant a code that lapsed while the screen was open stayed
-    // copyable and shareable until the user navigated away.
-    val now by produceState(initialValue = Instant.now()) {
-        while (true) {
-            value = Instant.now()
-            delay(1_000)
-        }
-    }
-    val readyInvite = invite?.takeIf {
-        it.status == "pending" && it.expiresAt.isAfter(now)
-    }
-    val book = readyInvite?.let { LibraryRepository.bookById(it.copyId) }
-
+    // Return before touching the not-yet-loaded invitation (PR #1 regression).
     if (loading) {
         LoadingState("Loading this invitation")
         return
     }
-
-    if (error != null || readyInvite == null || book == null) {
+    val issued = invite
+    if (loadError != null) {
+        UnavailableState("Could not verify invitation", loadError.orEmpty(),
+            navController::popBackStack, { navController.navigate(Routes.HomeLibrary.route) },
+            "Try again", { retry++ })
+        return
+    }
+    if (cancelled || unavailable != null || issued == null || !inviteIsPending(issued, now)) {
         UnavailableState(
-            title = "This code has expired",
-            message = error
-                ?: "This invitation has expired or was cancelled. Generate a fresh code and " +
-                "share it again.",
-            onBack = navController::popBackStack,
-            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } },
-            primaryLabel = invite?.copyId?.let { "Generate a new code" },
-            onPrimary = invite?.copyId?.let { copyId ->
-                {
-                    navController.navigate(Routes.LendBookConfig.createRoute(copyId)) {
-                        popUpTo(Routes.HomeLibrary.route)
-                    }
-                }
-            }
+            when {
+                cancelled || unavailable?.inviteStatus == "cancelled" -> "Invitation cancelled"
+                unavailable?.inviteStatus in setOf("accepted", "used", "claimed") -> "Invitation already used"
+                unavailable?.inviteStatus == "expired" || issued?.let { !inviteIsPending(it, now) } == true ->
+                    "Invitation expired"
+                else -> "Invitation unavailable"
+            },
+            if (cancelled) "This code no longer works. No loan was started."
+            else unavailable?.message ?: "This code has expired or is no longer pending. Ask the borrower not to use it.",
+            navController::popBackStack, { navController.navigate(Routes.HomeLibrary.route) },
+            issued?.let { "Generate a new code" },
+            issued?.let { { navController.navigate(Routes.LendBookConfig.createRoute(it.copyId)) } }
         )
         return
     }
+    val book = bookSnapshot ?: LibraryRepository.bookById(issued.copyId)
+    if (book == null) {
+        ShareInviteBookStatusContent(
+            libraryLoaded = LibraryRepository.hasLoadedLibrary,
+            error = LibraryRepository.libraryError,
+            onBack = navController::popBackStack,
+            onLibrary = { navController.navigate(Routes.HomeLibrary.route) },
+            onRetry = LibraryRepository::retryLoads
+        )
+        return
+    }
+    LaunchedEffect(inviteId, book) { if (bookSnapshot == null) bookSnapshot = book }
 
-    if (confirmCancel && readyInvite != null) {
+    fun authorizedAction(action: () -> Unit) {
+        if (working || !inviteIsPending(issued, clock.instant())) return
+        working = true
+        actionError = null
+        scope.launch(Dispatchers.Main.immediate) {
+            handoffAttempt { verifiedInvite() }
+                .onSuccess { action() }
+                .onFailure {
+                    if (it is InviteUnavailableException) unavailable = it
+                    else loadError = it.localizedMessage ?: "Could not verify the invitation. Try again."
+                }
+            working = false
+        }
+    }
+    if (confirmCancel) {
         ConfirmationDialog(
             title = "Cancel this invite?",
-            message = "The code stops working immediately and the borrower will not be able " +
-                "to claim the book.",
-            confirmLabel = "Cancel invite",
-            loading = cancelling,
+            message = "The code stops working immediately. No loan starts from a cancelled invitation.",
+            confirmLabel = "Cancel invite", loading = working,
+            onDismiss = { if (!working) confirmCancel = false },
             onConfirm = {
-                cancelling = true
-                scope.launch {
-                    runCatching { LibraryRepository.cancelLendingInvite(readyInvite.id) }
-                        .onSuccess {
-                            confirmCancel = false
-                            navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) }
-                        }
-                        .onFailure {
-                            error = it.localizedMessage ?: "We could not cancel this invitation."
-                        }
-                    cancelling = false
+                if (!working) {
+                    working = true
+                    scope.launch(Dispatchers.Main.immediate) {
+                        handoffAttempt { LibraryRepository.cancelLendingInvite(issued.id) }
+                            .onSuccess { cancelled = true; confirmCancel = false }
+                            .onFailure { actionError = it.localizedMessage ?: "Could not cancel the invitation. Try again."; confirmCancel = false }
+                        working = false
+                    }
                 }
-            },
-            onDismiss = { confirmCancel = false }
+            }
         )
     }
-
-    MaktabaScaffold(
-        snackbarHostState = snackbarHostState,
-        topBar = {
-            ScreenTopBar(title = "Share the code", onBack = { navController.popBackStack() })
-        }
-    ) { innerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(colors.background)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = spacing.lg)
-        ) {
-            val code = readyInvite.code.value
-            val link = lendingLinkFor(code)
-
-            Spacer(Modifier.height(spacing.xs))
-            Text(
-                "Ask the borrower to scan this code, or send it to them.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.inkSoft,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // The expiry was enforced but never shown, so it always arrived as a surprise.
-            Spacer(Modifier.height(spacing.sm))
-            ExpiryCountdown(expiresAt = readyInvite.expiresAt, now = now)
-
-            Spacer(Modifier.height(spacing.md))
-
-            MaktabaCard(contentPadding = androidx.compose.foundation.layout.PaddingValues(spacing.lg)) {
-                Column(
-                    Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        "YOUR LENDING CODE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.primary,
-                        modifier = Modifier.semantics { heading() }
-                    )
-                    Spacer(Modifier.height(spacing.xs))
-                    Text(
-                        code,
-                        style = MaterialTheme.typography.displayLarge,
-                        color = colors.ink,
-                        modifier = Modifier.semantics {
-                            contentDescription = "Lending code ${code.toCharArray().joinToString(" ")}"
-                        }
-                    )
-                    Spacer(Modifier.height(spacing.sm))
-                    OutlinedButton(
-                        onClick = {
-                            clipboard.setText(AnnotatedString(code))
-                            scope.launch { snackbarHostState.showSnackbar("Code copied") }
-                        },
-                        shape = MaktabaShapes.pill
-                    ) {
-                        Icon(
-                            Icons.Filled.ContentCopy,
-                            contentDescription = null,
-                            tint = colors.ink,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Copy code",
-                            color = colors.ink,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                    Spacer(Modifier.height(spacing.md))
-                    QrCodeImage(
-                        value = link,
-                        modifier = Modifier
-                            .size(200.dp)
-                            .clip(MaktabaShapes.small)
-                            .background(Color.White)
-                            .padding(10.dp)
-                    )
+    ShareLendingCodeContent(
+        ShareLendingCodeState(book, issued, now, working, actionError, feedback, borrowerLabel),
+        onBack = { navController.popBackStack() },
+        onCopy = { authorizedAction { clipboard.setText(AnnotatedString(issued.code.value)); feedback = "Code copied" } },
+        onShare = {
+            authorizedAction {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "Borrow \"${book.title}\" on Book Haven.\n${lendingLinkFor(issued.code.value)}\nCode: ${issued.code.value}")
+                }
+                try {
+                    context.startActivity(Intent.createChooser(intent, "Share lending invitation"))
+                } catch (_: ActivityNotFoundException) {
+                    actionError = "No sharing app is available. You can copy the code instead."
                 }
             }
+        },
+        onCancel = { if (!working) confirmCancel = true },
+        onDone = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(Routes.HomeLibrary.route) { inclusive = true } } }
+    )
+}
 
-            Spacer(Modifier.height(spacing.lg))
-
-            GreenButton(
-                text = "Share link",
-                leadingIcon = {
-                    Icon(Icons.Filled.Link, contentDescription = null, tint = colors.onAccent)
-                },
-                onClick = {
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(
-                            Intent.EXTRA_TEXT,
-                            "Borrow \"${book.title}\" from me on Book Haven.\n" +
-                                "Open $link, or enter code $code in the app."
-                        )
-                    }
-                    context.startActivity(
-                        Intent.createChooser(shareIntent, "Share lending invitation")
-                    )
-                }
-            )
-            Spacer(Modifier.height(spacing.xs))
-            TextActionButton(
-                text = "Done",
-                onClick = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
-            )
-
-            error?.let {
-                Spacer(Modifier.height(spacing.xs))
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.danger,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(Modifier.height(spacing.lg))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(colors.divider))
-            Spacer(Modifier.height(spacing.xs))
-            TextActionButton(
-                text = "Cancel this invite",
-                destructive = true,
-                onClick = { confirmCancel = true }
-            )
-            Spacer(Modifier.height(spacing.lg))
-        }
+@Composable
+fun ShareInviteBookStatusContent(
+    libraryLoaded: Boolean,
+    error: String?,
+    onBack: () -> Unit,
+    onLibrary: () -> Unit,
+    onRetry: () -> Unit
+) {
+    when {
+        error != null -> UnavailableState("Could not load this book", error,
+            onBack, onLibrary, "Try again", onRetry)
+        !libraryLoaded -> LoadingState("Loading this book")
+        else -> UnavailableState("Book unavailable", "This invitation's book is no longer available.",
+            onBack, onLibrary)
     }
 }
 
 @Composable
-private fun ExpiryCountdown(expiresAt: Instant, now: Instant) {
+fun ShareLendingCodeContent(
+    state: ShareLendingCodeState,
+    onBack: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onCancel: () -> Unit,
+    onDone: () -> Unit
+) {
     val colors = MaktabaTheme.colors
-    val seconds = Duration.between(now, expiresAt).seconds.coerceAtLeast(0)
-    val label = when {
-        seconds >= 3600 -> "${seconds / 3600} h ${(seconds % 3600) / 60} min"
-        seconds >= 60 -> "${seconds / 60} min ${seconds % 60} s"
-        else -> "$seconds s"
-    }
-    val urgent = seconds < 300
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaktabaShapes.pill)
-            .background(if (urgent) colors.warningContainer else colors.surfaceAlt)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-            .semantics { contentDescription = "This code is active for $label" },
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            Icons.Filled.Schedule,
-            contentDescription = null,
-            tint = if (urgent) colors.warning else colors.inkMuted,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            "This code is active for $label",
-            style = MaterialTheme.typography.labelMedium,
-            color = if (urgent) colors.warning else colors.inkSoft
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Share lending code")
-@Composable
-private fun ShareLendingCodeScreenPreview() {
-    BookHavenTheme {
-        ShareLendingCodeScreen(navController = rememberNavController(), inviteId = "preview")
+    val pending = inviteIsPending(state.invite, state.now) && !state.working
+    val end = minOf(state.invite.expiresAt, state.invite.dueAt ?: state.invite.expiresAt)
+    val seconds = Duration.between(state.now, end).seconds.coerceAtLeast(0)
+    val remaining = if (seconds >= 3600) "${seconds / 3600} h ${(seconds % 3600) / 60} min"
+        else "${seconds / 60} min ${seconds % 60} s"
+    HandoffPage("Share the Code", onBack, actions = {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PrimaryButton("Share Link", enabled = pending, loading = state.working,
+                modifier = Modifier.weight(1f), leadingIcon = {
+                    Icon(Icons.Outlined.Link, null, modifier = Modifier.size(16.dp))
+                }, onClick = onShare)
+            OutlinedButton(onClick = onDone, shape = MaktabaShapes.small,
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                modifier = Modifier.defaultMinSize(minHeight = 48.dp)) { Text("Done") }
+        }
+    }) {
+        HandoffBookSummary(state.book, compact = true)
+        Spacer(Modifier.height(18.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(12.dp), tint = colors.inkMuted)
+            Spacer(Modifier.width(5.dp))
+            Text("Code active for  $remaining", style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 10.sp, lineHeight = 18.sp), color = colors.inkMuted)
+        }
+        Spacer(Modifier.height(18.dp))
+        Surface(shape = MaktabaShapes.medium, color = colors.surface,
+            border = BorderStroke(1.dp, colors.divider)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("YOUR LENDING CODE", style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 9.sp, lineHeight = 14.sp, letterSpacing = 1.2.sp), color = colors.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(state.invite.code.value, style = MaterialTheme.typography.displayMedium.copy(letterSpacing = 3.sp),
+                    color = colors.ink)
+                TextButton(onClick = onCopy, enabled = pending) {
+                    Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Copy Code", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp))
+                }
+                Spacer(Modifier.height(6.dp))
+                QrCodeImage(lendingLinkFor(state.invite.code.value),
+                    modifier = Modifier.size(144.dp).clip(RoundedCornerShape(6.dp)).background(Color.White))
+                Spacer(Modifier.height(10.dp))
+                Text("Scan this code in Book Haven.", style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 9.sp, lineHeight = 15.sp), color = colors.inkMuted)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(11.dp), tint = colors.inkMuted)
+            Spacer(Modifier.width(5.dp))
+            Text("Waiting for ${state.borrowerLabel?.takeIf { it.isNotBlank() } ?: "the borrower"} to confirm.",
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 18.sp),
+                color = colors.inkMuted, textAlign = TextAlign.Center, modifier = Modifier.weight(1f, fill = false))
+        }
+        TextButton(onClick = onCancel, enabled = pending,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            colors = ButtonDefaults.textButtonColors(contentColor = colors.danger)) {
+            Text("Cancel This Invite", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp))
+        }
+        state.error?.let { HandoffNotice(it, error = true) }
+        state.feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.inkMuted) }
     }
 }

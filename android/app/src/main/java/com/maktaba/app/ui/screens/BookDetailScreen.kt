@@ -1,39 +1,36 @@
 package com.maktaba.app.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,364 +40,412 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.maktaba.app.R
 import com.maktaba.app.data.BookFormat
 import com.maktaba.app.data.BookStatus
+import com.maktaba.app.data.CollectionsRepository
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.data.LoadState
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.ConfirmationDialog
+import com.maktaba.app.ui.components.EmptyState
 import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.StatusPill
-import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.components.catalogueVisuals
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.components.urgencyColor
-import com.maktaba.app.ui.theme.BookHavenTheme
-import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
+import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.util.LoanTimeFormatter
 import com.maktaba.app.util.LoanUrgency
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import java.time.Clock
 
 @Composable
-fun BookDetailScreen(navController: NavHostController, bookId: String) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
+fun BookDetailScreen(
+    navController: NavHostController,
+    bookId: String,
+    catalogueOnly: Boolean = false
+) {
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
+    var saving by remember(bookId, catalogueOnly) { mutableStateOf(false) }
+    var hiding by remember(bookId, catalogueOnly) { mutableStateOf(false) }
+    var removing by remember(bookId, catalogueOnly) { mutableStateOf(false) }
+    var confirmRemove by remember(bookId, catalogueOnly) { mutableStateOf(false) }
+    val selection = selectLibraryDetail(
+        bookId, catalogueOnly, LibraryRepository.books, LibraryRepository.maktabaCollection
+    )
+    val book = selection?.book
+    val privateCopy = selection?.privateCopy == true
+    val sharing = CollectionsRepository.sharingSettings
+    val settings = (sharing as? LoadState.Ready)?.value
+    val state = LibraryBookDetailState(
+        selection = selection,
+        loaded = LibraryRepository.hasLoadedLibrary &&
+            (!privateCopy || LibraryRepository.hasLoadedLoans),
+        error = LibraryRepository.libraryError ?: if (privateCopy) LibraryRepository.loansError else null,
+        loan = if (privateCopy && book != null) LibraryRepository.activeLoanFor(book.id) else null,
+        saved = book?.let { LibraryRepository.isOnWishlist(it.catalogId) } == true,
+        savedLoaded = LibraryRepository.hasLoadedWishlist,
+        savedError = LibraryRepository.wishlistError,
+        hasOpenActivity = privateCopy && book != null && LibraryRepository.hasOpenLoanActivity(book.id),
+        allowVisibilityManagement = !catalogueOnly,
+        hidden = book?.let { settings?.hiddenCatalogIds?.contains(it.catalogId) },
+        sharingError = when (sharing) {
+            is LoadState.Error -> sharing.cause.localizedMessage ?: "Sharing settings could not load."
+            LoadState.NotFound -> "Sharing settings are unavailable."
+            else -> null
+        }
+    )
 
-    var menuOpen by remember { mutableStateOf(false) }
-    var confirmRemove by remember { mutableStateOf(false) }
-    var removing by remember { mutableStateOf(false) }
-
-    val book = LibraryRepository.bookById(bookId)
-    if (book == null && !LibraryRepository.hasLoadedLibrary) {
-        LoadingState("Loading this book")
-        return
-    }
-    if (book == null) {
-        UnavailableState(
-            title = "Book unavailable",
-            message = "We could not find this book. It may have been removed from your shelf.",
-            onBack = navController::popBackStack,
-            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
-        )
-        return
-    }
-
-    // A catalogue entry reached from the wishlist is not on the user's shelf, so it must
-    // not offer shelf actions such as lending or removal.
-    val isOwnedCopy = LibraryRepository.books.any { it.id == book.id }
-    val loan = LibraryRepository.activeLoanFor(book.id)
-    val urgency = loan?.let { LoanTimeFormatter.urgency(it.dueAt) } ?: LoanUrgency.UNKNOWN
-    // A catalogue row reports status OWNED, so its pill has to be chosen by whether the
-    // user actually holds a copy - not by the placeholder status on the model.
-    val visuals = if (isOwnedCopy) {
-        statusVisuals(colors, book.status, urgency)
-    } else {
-        catalogueVisuals(colors)
-    }
-    val onWishlist = LibraryRepository.isOnWishlist(book.catalogId)
-
-    if (confirmRemove) {
+    if (confirmRemove && state.loaded && state.error == null && book != null &&
+        selection?.canRemove == true && !state.hasOpenActivity
+    ) {
         ConfirmationDialog(
             title = "Remove from your library?",
-            message = "\"${book.title}\" will be taken off your shelf. The catalogue entry " +
-                "stays, so you can add it again later.",
+            message = "\"${book.title}\" will be taken off your shelf. Its catalogue entry, " +
+                "saved status and collection memberships stay unchanged.",
             confirmLabel = "Remove",
             loading = removing,
             onConfirm = {
-                removing = true
-                scope.launch {
-                    runCatching { LibraryRepository.removeBook(book.id) }
-                        .onSuccess {
-                            confirmRemove = false
-                            navController.popBackStack()
-                        }
-                        .onFailure {
-                            snackbarHostState.showSnackbar(
-                                it.localizedMessage ?: "We could not remove this book."
-                            )
-                        }
-                    removing = false
+                if (!removing) {
+                    removing = true
+                    scope.launch(Dispatchers.Main.immediate) {
+                        runCatching { LibraryRepository.removeBook(book.id) }
+                            .onSuccess { confirmRemove = false; navController.popBackStack() }
+                            .onFailure {
+                                snackbar.showSnackbar(it.localizedMessage ?: "We could not remove this book.")
+                            }
+                        removing = false
+                    }
                 }
             },
-            onDismiss = { confirmRemove = false }
+            onDismiss = { if (!removing) confirmRemove = false }
         )
     }
+    BookDetailContent(
+        state = state,
+        snackbarHostState = snackbar,
+        saving = saving,
+        hiding = hiding,
+        onBack = { navController.popBackStack() },
+        onRetry = LibraryRepository::retryLoads,
+        onSave = {
+            if (book != null && !saving && state.savedLoaded && state.savedError == null) {
+                saving = true
+                scope.launch(Dispatchers.Main.immediate) {
+                    runCatching {
+                        if (state.saved) LibraryRepository.removeFromWishlist(book.catalogId)
+                        else LibraryRepository.addToWishlist(book.catalogId)
+                    }.onFailure {
+                        snackbar.showSnackbar(it.localizedMessage ?: "We could not update Want to Read.")
+                    }
+                    saving = false
+                }
+            }
+        },
+        onLend = {
+            if (privateCopy && book != null && selection?.canLend == true) {
+                navController.navigate(Routes.LendBookConfig.createRoute(book.id))
+            }
+        },
+        onLoan = {
+            if (privateCopy && book != null) {
+                navController.navigate(Routes.ActiveLoan.createRoute(book.id))
+            }
+        },
+        onRemove = {
+            if (state.loaded && state.error == null && privateCopy &&
+                selection?.canRemove == true && !state.hasOpenActivity
+            ) {
+                confirmRemove = true
+            }
+        },
+        onAddToCollection = {
+            if (book != null) navController.navigate(Routes.AddToCollection.createRoute(book.catalogId))
+        },
+        onToggleHidden = {
+            if (!catalogueOnly && book != null && state.hidden != null && !hiding) {
+                hiding = true
+                scope.launch(Dispatchers.Main.immediate) {
+                    runCatching { CollectionsRepository.setTitleHidden(book.catalogId, !state.hidden) }
+                        .onFailure {
+                            snackbar.showSnackbar(it.localizedMessage ?: "We could not update title visibility.")
+                        }
+                    hiding = false
+                }
+            }
+        },
+        onManageSharing = { navController.navigate(Routes.LibrarySharing.route) }
+    )
+}
+
+@Composable
+fun BookDetailContent(
+    state: LibraryBookDetailState,
+    onBack: () -> Unit,
+    onRetry: () -> Unit,
+    onSave: () -> Unit,
+    onLend: () -> Unit,
+    onLoan: () -> Unit,
+    onRemove: () -> Unit,
+    onAddToCollection: () -> Unit,
+    onToggleHidden: () -> Unit,
+    onManageSharing: () -> Unit,
+    saving: Boolean = false,
+    hiding: Boolean = false,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    clock: Clock = Clock.systemDefaultZone()
+) {
+    val colors = MaktabaTheme.colors
+    val spacing = MaktabaTheme.spacing
+    var menuOpen by remember(state.selection?.book?.id) { mutableStateOf(false) }
+    val selection = state.selection
+    val book = selection?.book
+    val privateCopy = selection?.privateCopy == true
+    // Even a fixture carrying a loan must never leak that loan into catalogue mode.
+    val loan = state.loan.takeIf { privateCopy }
+    val urgency = loan?.let { LoanTimeFormatter.urgency(it.dueAt, clock) } ?: LoanUrgency.UNKNOWN
 
     MaktabaScaffold(
         snackbarHostState = snackbarHostState,
         topBar = {
             ScreenTopBar(
-                title = "Book detail",
-                onBack = { navController.popBackStack() },
+                title = "",
+                onBack = onBack,
                 actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                runCatching {
-                                    if (onWishlist) {
-                                        LibraryRepository.removeFromWishlist(book.catalogId)
-                                    } else {
-                                        LibraryRepository.addToWishlist(book.catalogId)
-                                    }
-                                }.onFailure {
-                                    snackbarHostState.showSnackbar(
-                                        it.localizedMessage ?: "We could not update your wishlist."
-                                    )
-                                }
-                            }
-                        }
-                    ) {
-                        Icon(
-                            if (onWishlist) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = if (onWishlist) "Remove from wishlist"
-                            else "Add to wishlist",
-                            tint = if (onWishlist) colors.primary else colors.inkSoft
-                        )
-                    }
-                    if (isOwnedCopy) {
-                        Box {
-                            IconButton(onClick = { menuOpen = true }) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "More actions",
-                                    tint = colors.ink
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Remove from library") },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Filled.Delete,
-                                            contentDescription = null,
-                                            tint = colors.danger
-                                        )
-                                    },
-                                    enabled = !LibraryRepository.hasOpenLoanActivity(book.id),
-                                    onClick = {
-                                        menuOpen = false
-                                        confirmRemove = true
-                                    }
-                                )
-                            }
+                    if (book != null && state.error == null && state.loaded) {
+                        IconButton(
+                            onClick = onSave,
+                            enabled = state.savedLoaded && state.savedError == null && !saving
+                        ) {
+                            Icon(
+                                if (state.saved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = if (state.saved) "Remove from Want to Read" else "Save to Want to Read",
+                                tint = if (state.saved) colors.primary else colors.ink
+                            )
                         }
                     }
                 }
             )
         }
     ) { innerPadding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(colors.background)
-        ) {
-            // Decorative shelf, clipped to the top band. It used to be pinned to the
-            // centre-start at 55% of screen height, underneath the description column.
-            Image(
-                painter = painterResource(R.drawable.illus_book_detail),
-                contentDescription = null,
-                contentScale = ContentScale.FillHeight,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxHeight(0.22f)
-                    .width(52.dp)
+        when {
+            state.error != null -> EmptyState(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                title = "This book could not load", message = state.error,
+                primaryLabel = "Try again", onPrimary = onRetry,
+                secondaryLabel = "Back", onSecondary = onBack
             )
-
-            Column(Modifier.fillMaxSize()) {
+            !state.loaded -> Box(Modifier.fillMaxSize().padding(innerPadding)) {
+                LoadingState("Loading this book")
+            }
+            book == null -> EmptyState(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                title = "Book unavailable",
+                message = "This book may have been removed or is no longer available.",
+                primaryLabel = "Back", onPrimary = onBack
+            )
+            else -> Column(
+                Modifier.fillMaxSize().padding(innerPadding).background(colors.background)
+            ) {
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = spacing.lg)
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+                        .padding(horizontal = spacing.gutter)
                 ) {
-                    Column(
-                        Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Spacer(Modifier.height(spacing.xs))
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         BookCoverImage(
-                            book = book,
-                            contentScale = ContentScale.Crop,
-                            decorative = true,
-                            modifier = Modifier
-                                .fillMaxWidth(0.46f)
-                                .aspectRatio(0.68f)
-                                .clip(MaktabaShapes.small)
+                            book = book, contentScale = ContentScale.Fit, decorative = true,
+                            modifier = Modifier.width(124.dp).aspectRatio(2f / 3f).clip(MaktabaShapes.cover)
                         )
-                        Spacer(Modifier.height(spacing.sm))
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            book.title,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = colors.ink,
-                            textAlign = TextAlign.Center,
+                            book.title, style = MaterialTheme.typography.headlineSmall.copy(
+                                fontSize = 25.sp, lineHeight = 29.sp, letterSpacing = (-0.5).sp
+                            ),
+                            color = colors.ink, textAlign = TextAlign.Center,
                             modifier = Modifier.semantics { heading() }
                         )
-                        Spacer(Modifier.height(spacing.xxs))
+                        Spacer(Modifier.height(spacing.xs))
                         Text(
-                            book.author.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = colors.primary,
-                            textAlign = TextAlign.Center
+                            "by ${book.author}", style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 19.2.sp, lineHeightStyle = CoreLibraryLineHeight
+                            ),
+                            color = colors.inkSoft, textAlign = TextAlign.Center
                         )
-                        Spacer(Modifier.height(spacing.sm))
-
-                        StatusPill(visuals = visuals)
-
+                        if (privateCopy) {
+                            Box(
+                                Modifier.heightIn(min = 34.dp).padding(top = 8.dp, bottom = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                StatusPill(
+                                    visuals = statusVisuals(colors, book.status).copy(
+                                        label = when (book.status) {
+                                            BookStatus.OWNED -> "On my shelf"
+                                            BookStatus.LENT_OUT -> "Lent out"
+                                            BookStatus.BORROWED -> "Borrowed"
+                                        }
+                                    ),
+                                    compact = true
+                                )
+                            }
+                        } else {
+                            Text(
+                                "Catalogue Title",
+                                modifier = Modifier.padding(top = 12.dp, bottom = 3.dp),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, lineHeight = 14.4.sp),
+                                color = colors.inkMuted
+                            )
+                        }
                         if (loan != null) {
                             Spacer(Modifier.height(spacing.xs))
                             Text(
-                                buildString {
-                                    append(LoanTimeFormatter.shortRemaining(loan.dueAt))
-                                    append(" · ")
-                                    append(LoanTimeFormatter.formatDate(loan.dueAt))
-                                },
-                                style = MaterialTheme.typography.labelMedium,
+                                LoanTimeFormatter.shortRemaining(loan.dueAt, clock) + " · " +
+                                    LoanTimeFormatter.formatDate(loan.dueAt, clock.zone),
                                 color = urgencyColor(urgency),
+                                style = MaterialTheme.typography.bodySmall,
                                 textAlign = TextAlign.Center
                             )
                         }
-                        if (book.format == BookFormat.DIGITAL) {
-                            Spacer(Modifier.height(spacing.xs))
-                            Text(
-                                "Digital edition",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = colors.inkSoft,
-                                modifier = Modifier
-                                    .clip(MaktabaShapes.pill)
-                                    .background(colors.chipUnselected)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
                     }
-
-                    Spacer(Modifier.height(spacing.md))
-                    if (book.description.isNotBlank()) {
-                        Text(
-                            book.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.inkSoft
-                        )
-                        Spacer(Modifier.height(spacing.md))
-                    }
-
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(colors.divider)
+                    Spacer(Modifier.height(23.dp))
+                    Text(
+                        "ABOUT THE BOOK",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp, letterSpacing = 0.7.sp, fontWeight = FontWeight.SemiBold
+                        ), color = colors.ink
                     )
-                    Spacer(Modifier.height(spacing.sm))
-
+                    Spacer(Modifier.height(9.dp))
+                    Text(
+                        book.description.ifBlank { "No description is available for this edition." },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            lineHeight = 21.6.sp, lineHeightStyle = CoreLibraryLineHeight
+                        ), color = colors.inkSoft
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    HorizontalDivider(color = colors.divider)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        Modifier.fillMaxWidth().padding(vertical = 15.dp),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
                     ) {
-                        MetaItem(
-                            Icons.AutoMirrored.Filled.MenuBook,
-                            "Genre",
-                            book.genre.ifBlank { "Unknown" }
+                        DetailMetaItem("Genre", book.genre.ifBlank { "Unknown" }, Modifier.weight(1f))
+                        DetailMetaItem("Published", book.published.ifBlank { "Unknown" }, Modifier.weight(1f))
+                        DetailMetaItem("Pages", book.pages.takeIf { it > 0 }?.toString() ?: "Unknown", Modifier.weight(1f))
+                    }
+                    HorizontalDivider(color = colors.divider)
+                    Row(
+                        Modifier.padding(top = 14.dp, bottom = 7.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.MenuBook, contentDescription = null,
+                            tint = colors.inkMuted, modifier = Modifier.size(14.dp)
                         )
-                        MetaItem(
-                            Icons.Filled.CalendarToday,
-                            "Published",
-                            book.published.ifBlank { "Unknown" }
-                        )
-                        MetaItem(
-                            Icons.Filled.Description,
-                            "Pages",
-                            book.pages.takeIf { it > 0 }?.toString() ?: "Unknown"
+                        Text(
+                            when (book.format) {
+                                BookFormat.PHYSICAL -> "Physical edition"
+                                BookFormat.DIGITAL -> "Digital edition"
+                                BookFormat.UNKNOWN -> "Edition format unavailable"
+                            },
+                            color = colors.inkMuted, style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
                         )
                     }
-                    Spacer(Modifier.height(spacing.md))
+                    if (state.savedError != null) {
+                        Text(state.savedError, style = MaterialTheme.typography.bodySmall, color = colors.danger)
+                        TextButton(onClick = onRetry) { Text("Retry saved titles", color = colors.primary) }
+                    } else if (!state.savedLoaded) {
+                        Text(
+                            "Loading saved status…", style = MaterialTheme.typography.bodySmall,
+                            color = colors.inkMuted
+                        )
+                    }
+                    Box {
+                        Box(
+                            Modifier.heightIn(min = 48.dp)
+                                .clickable(role = Role.Button, onClick = { menuOpen = true }),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                "More book actions", color = colors.primary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Add to collection") },
+                                onClick = { menuOpen = false; onAddToCollection() }
+                            )
+                            if (state.allowVisibilityManagement) {
+                                if (state.hidden != null && state.sharingError == null) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(if (state.hidden) "Show in shared views" else "Hide from shared views")
+                                        },
+                                        enabled = !hiding,
+                                        onClick = { menuOpen = false; onToggleHidden() }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text("Manage shared visibility") },
+                                        onClick = { menuOpen = false; onManageSharing() }
+                                    )
+                                }
+                            }
+                            if (privateCopy && book.status != BookStatus.BORROWED) {
+                                DropdownMenuItem(
+                                    text = { Text("Remove from library") },
+                                    enabled = selection?.canRemove == true && !state.hasOpenActivity,
+                                    onClick = { menuOpen = false; onRemove() }
+                                )
+                            }
+                        }
+                    }
+                    if (privateCopy && state.hasOpenActivity) {
+                        Text(
+                            "This copy cannot be removed while a loan or lending invitation is open.",
+                            color = colors.inkMuted, style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (privateCopy && book.format != BookFormat.PHYSICAL && loan == null) {
+                        Text(
+                            if (book.format == BookFormat.DIGITAL) {
+                                "Digital editions cannot be lent through Book Haven." +
+                                    book.physicalEditionIsbn13.takeIf(String::isNotBlank)
+                                        ?.let { " Physical edition ISBN: $it." }.orEmpty()
+                            } else "A confirmed physical edition is needed before this book can be lent.",
+                            color = colors.inkMuted, style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(Modifier.height(spacing.lg))
                 }
-
-                Column(Modifier.padding(horizontal = spacing.gutter, vertical = spacing.xs)) {
-                    when {
-                        !isOwnedCopy -> {
-                            Text(
-                                "This is a catalogue entry. Add it to your shelf from the " +
-                                    "add-book screen to lend it.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.inkMuted,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        book.format == BookFormat.DIGITAL -> {
-                            // The explanation now precedes the action, rather than sitting
-                            // underneath a button that looks tappable but is not.
-                            Text(
-                                buildString {
-                                    append("Digital editions cannot be lent through Book Haven.")
-                                    if (book.physicalEditionIsbn13.isNotBlank()) {
-                                        append(" The physical edition is ISBN ")
-                                        append(book.physicalEditionIsbn13)
-                                        append(".")
-                                    }
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.inkMuted,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        book.status == BookStatus.OWNED -> PrimaryButton(
-                            text = "Lend this book",
+                if (privateCopy && (loan != null || selection?.canLend == true)) {
+                    HorizontalDivider(color = colors.divider)
+                    Box(Modifier.padding(horizontal = spacing.gutter, vertical = spacing.sm)) {
+                        PrimaryButton(
+                            text = if (loan != null) "View This Loan"
+                            else if (state.hasOpenActivity) "Continue Lending" else "Lend This Book",
+                            onClick = if (loan != null) onLoan else onLend,
                             leadingIcon = {
                                 Icon(
-                                    Icons.Filled.People,
-                                    contentDescription = null,
-                                    tint = colors.onPrimary,
-                                    modifier = Modifier.size(20.dp)
+                                    Icons.Filled.NorthEast, contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                            },
-                            onClick = {
-                                navController.navigate(
-                                    Routes.LendBookConfig.createRoute(book.id)
-                                )
-                            }
-                        )
-
-                        else -> PrimaryButton(
-                            text = "View this loan",
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.People,
-                                    contentDescription = null,
-                                    tint = colors.onPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            },
-                            onClick = {
-                                navController.navigate(Routes.ActiveLoan.createRoute(book.id))
                             }
                         )
                     }
-                    Spacer(Modifier.height(spacing.xs))
                 }
             }
         }
@@ -408,31 +453,20 @@ fun BookDetailScreen(navController: NavHostController, bookId: String) {
 }
 
 @Composable
-private fun MetaItem(icon: ImageVector, label: String, value: String) {
+private fun DetailMetaItem(label: String, value: String, modifier: Modifier) {
     val colors = MaktabaTheme.colors
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.semantics(mergeDescendants = true) {}
-    ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(colors.surfaceAlt),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(16.dp))
-        }
+    Column(modifier.semantics(mergeDescendants = true) {}) {
+        Text(
+            label, style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 10.sp, lineHeight = 16.sp, lineHeightStyle = CoreLibraryLineHeight
+            ),
+            color = colors.inkMuted
+        )
         Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = colors.inkMuted)
-        Text(value, style = MaterialTheme.typography.labelMedium, color = colors.ink)
-    }
-}
-
-@Preview(showBackground = true, name = "Book detail")
-@Composable
-private fun BookDetailScreenPreview() {
-    BookHavenTheme {
-        BookDetailScreen(navController = rememberNavController(), bookId = "preview")
+        Text(
+            value, style = MaterialTheme.typography.bodySmall.copy(
+                lineHeight = 19.2.sp, lineHeightStyle = CoreLibraryLineHeight
+            ), color = colors.ink
+        )
     }
 }

@@ -30,10 +30,11 @@ val LocalMaktabaSpacing = staticCompositionLocalOf { MaktabaSpacing() }
  */
 object MaktabaShapes {
     val small = RoundedCornerShape(8.dp)
-    val medium = RoundedCornerShape(16.dp)
-    val large = RoundedCornerShape(24.dp)
+    val medium = RoundedCornerShape(12.dp)
+    val large = RoundedCornerShape(22.dp)
+    val button = RoundedCornerShape(9.dp)
     val pill = RoundedCornerShape(percent = 50)
-    val cover = RoundedCornerShape(8.dp)
+    val cover = RoundedCornerShape(6.dp)
     val sheet = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 
     val material = Shapes(

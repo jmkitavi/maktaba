@@ -50,7 +50,9 @@ data class ActiveLoan(
     val returnRequestedAt: Instant?,
     val returnedAt: Instant?,
     val returnRequestedById: String? = null,
-    val returnRequestedByCurrentUser: Boolean = false
+    val returnRequestedByCurrentUser: Boolean = false,
+    val counterpartyUid: String = "",
+    val nextReminderAllowedAt: Instant? = null
 ) {
     val isLender: Boolean get() = role == LoanRole.LENDER
 }
@@ -75,6 +77,29 @@ data class PendingLoanInvite(
     val expiresAt: Instant,
     val status: String = "pending"
 )
+
+class InviteUnavailableException(
+    val inviteStatus: String,
+    message: String
+) : IllegalStateException(message)
+
+internal fun invitationLoanStatus(
+    invitationStatus: String?,
+    canAccept: Boolean,
+    acceptedLoanStatus: String? = null
+): LoanStatus {
+    val status = when (if (invitationStatus == "accepted") acceptedLoanStatus else invitationStatus) {
+        "pending" -> if (invitationStatus == "pending") LoanStatus.PENDING else null
+        "active" -> LoanStatus.ACTIVE
+        "return_requested" -> LoanStatus.RETURN_REQUESTED
+        "returned" -> LoanStatus.RETURNED
+        else -> null
+    } ?: throw InviteUnavailableException(invitationStatus.orEmpty(), "This invitation is no longer available.")
+    if ((status == LoanStatus.PENDING) != canAccept) {
+        throw InviteUnavailableException(invitationStatus.orEmpty(), "This invitation is not available for you to accept.")
+    }
+    return status
+}
 
 internal fun pendingLoanInviteFromCreateResult(
     copyId: String,

@@ -1,4 +1,9 @@
 import type { UserRecord } from "firebase-admin/auth";
+export {
+  setLibrarySharing, setTitleVisibility, createCollection, updateCollection, deleteCollection, reportLibrary,
+  onSharingUserBookWritten, onSharingLoanWritten, onSharingProfileWritten,
+  onSharingCollectionWritten, onSharingCatalogWritten, onPublicationJobWritten,
+} from "./sharingFunctions";
 import { randomUUID } from "node:crypto";
 import {
   Timestamp,
@@ -284,13 +289,15 @@ function serializeResolvedInvite(
     author: invite.book.author,
     authors: [invite.book.author],
     coverUrl: coverUrlForBook(invite.book),
+    format: resolveBookFormat(invite.book.binding, invite.book.format),
+    binding: invite.book.binding ?? null,
     lenderDisplayName: invite.lenderDisplayName,
     dueAtMillis: invite.dueDate.toMillis(),
-    canAccept,
+    canAccept: canAccept && resolveBookFormat(invite.book.binding, invite.book.format) !== "DIGITAL",
   };
 }
 
-function serializeLoan(loanId: string, loan: LoanDocument) {
+function serializeLoan(loanId: string, loan: LoanDocument, formatMetadata: BookSnapshot = loan.book) {
   return {
     loanId,
     copyId: loanCopyId(loan),
@@ -301,6 +308,8 @@ function serializeLoan(loanId: string, loan: LoanDocument) {
     author: loan.book.author,
     authors: [loan.book.author],
     coverUrl: coverUrlForBook(loan.book),
+    format: resolveBookFormat(formatMetadata.binding, formatMetadata.format),
+    binding: formatMetadata.binding ?? null,
     lenderDisplayName: loan.lenderDisplayName,
     borrowerDisplayName: loan.borrowerDisplayName,
     dueAtMillis: loan.dueDate.toMillis(),
@@ -321,6 +330,8 @@ function serializeCancelledInvite(inviteId: string, invite: LoanInviteDocument) 
     author: invite.book.author,
     authors: [invite.book.author],
     coverUrl: coverUrlForBook(invite.book),
+    format: resolveBookFormat(invite.book.binding, invite.book.format),
+    binding: invite.book.binding ?? null,
     lenderDisplayName: invite.lenderDisplayName,
     dueAtMillis: invite.dueDate.toMillis(),
     expiresAtMillis: invite.expiresAt.toMillis(),
@@ -335,8 +346,30 @@ function buildBookSnapshot(catalog: CatalogBookRecord): BookSnapshot {
     title: catalog.title,
     author: catalog.author,
     coverStoragePath: catalog.coverStoragePath,
-    coverUrl: catalog.coverUrl,
+    ...(catalog.coverUrl ? { coverUrl: catalog.coverUrl } : {}),
+    format: resolveBookFormat(catalog.binding, catalog.format),
+    ...(catalog.binding ? { binding: catalog.binding } : {}),
   };
+}
+
+async function currentBookFormat(transaction: Transaction, book: BookSnapshot): Promise<BookSnapshot> {
+  const [appCatalog, legacyCatalog] = await Promise.all([
+    transaction.get(db.collection(COLLECTIONS.catalogBooks).doc(book.catalogBookId)),
+    transaction.get(db.collection(COLLECTIONS.catalog).doc(book.catalogBookId)),
+  ]);
+  const candidates = [
+    { binding: appCatalog.get("binding"), format: appCatalog.get("format") },
+    { binding: legacyCatalog.get("binding"), format: legacyCatalog.get("format") },
+    { binding: book.binding, format: book.format },
+  ].map((candidate: { binding: unknown; format: unknown }) => {
+    const binding = typeof candidate.binding === "string" ? candidate.binding : undefined;
+    return { binding, format: resolveBookFormat(binding, candidate.format) };
+  });
+  const selected = candidates.find((candidate) => candidate.format !== "UNKNOWN") ?? candidates[0]!;
+  const result: BookSnapshot = { ...book, format: selected.format };
+  if (selected.binding) result.binding = selected.binding;
+  else delete result.binding;
+  return result;
 }
 
 function buildNotificationData(
@@ -741,10 +774,10 @@ function buildCatalogRecordFromAppRecord(
     description: appRecord.description,
     coverStoragePath: appRecord.coverStoragePath,
     coverUrl: appRecord.coverUrl,
-    coverSource: appRecord.coverSource,
-    coverOriginalUrl: appRecord.coverOriginalUrl,
-    coverContentHash: appRecord.coverContentHash,
-    coverCachedAt: appRecord.coverCachedAt,
+    ...(appRecord.coverSource ? { coverSource: appRecord.coverSource } : {}),
+    ...(appRecord.coverOriginalUrl ? { coverOriginalUrl: appRecord.coverOriginalUrl } : {}),
+    ...(appRecord.coverContentHash ? { coverContentHash: appRecord.coverContentHash } : {}),
+    ...(appRecord.coverCachedAt ? { coverCachedAt: appRecord.coverCachedAt } : {}),
     searchableTitle: normalizeSearchText(appRecord.title),
     searchableAuthor: normalizeSearchText(author),
     ...(appRecord.binding ? { binding: appRecord.binding } : {}),
@@ -815,7 +848,7 @@ async function loadInviteByTransaction(
 
     return {
       inviteRef,
-      invite: inviteSnap.data() as LoanInviteDocument,
+      invite: await currentInviteFormat(transaction, inviteSnap.data() as LoanInviteDocument),
       codeRef,
       code,
     };
@@ -831,10 +864,14 @@ async function loadInviteByTransaction(
 
   return {
     inviteRef,
-    invite,
+    invite: await currentInviteFormat(transaction, invite),
     codeRef,
     code: codeSnap.exists ? (codeSnap.data() as LoanInviteCodeDocument) : null,
   };
+}
+
+async function currentInviteFormat(transaction: Transaction, invite: LoanInviteDocument): Promise<LoanInviteDocument> {
+  return { ...invite, book: await currentBookFormat(transaction, invite.book) };
 }
 
 interface IsbnLookupCacheDocument {
@@ -1357,6 +1394,8 @@ export const createLoanInvite = withCallableErrors(async (request) => {
                 dueAtMillis: existingInvite.dueDate.toMillis(),
                 expiresAtMillis: existingInvite.expiresAt.toMillis(),
                 resumed: true,
+                format: appFormat !== "UNKNOWN" ? appFormat : legacyFormat,
+                binding: appCatalog?.binding ?? legacyCatalog?.binding ?? null,
               };
             }
 
@@ -1395,6 +1434,12 @@ export const createLoanInvite = withCallableErrors(async (request) => {
         }
 
         const book = buildBookSnapshot(catalog);
+        book.format = appFormat !== "UNKNOWN" ? appFormat : legacyFormat;
+        const binding = appFormat !== "UNKNOWN"
+          ? appCatalog?.binding
+          : legacyCatalog?.binding ?? appCatalog?.binding;
+        if (binding) book.binding = binding;
+        else delete book.binding;
         const invite: LoanInviteDocument = {
           code: formatLoanCode(codeKey),
           codeKey,
@@ -1447,6 +1492,8 @@ export const createLoanInvite = withCallableErrors(async (request) => {
           inviteCode: invite.code,
           dueAtMillis: invite.dueDate.toMillis(),
           expiresAtMillis: invite.expiresAt.toMillis(),
+          format: resolveBookFormat(book.binding, book.format),
+          binding: book.binding ?? null,
         };
       });
 
@@ -1596,7 +1643,7 @@ export const acceptLoanInvite = withCallableErrors(async (request) => {
         "failed-precondition",
         "The accepted invite is missing its loan document.",
       );
-      return serializeLoan(loanRef.id, existingLoanSnap.data() as LoanDocument);
+      return serializeLoan(loanRef.id, existingLoanSnap.data() as LoanDocument, invite.book);
     }
 
     assertDomain(invite.status === "pending", "failed-precondition", "This invite is no longer available.");
@@ -1613,9 +1660,10 @@ export const acceptLoanInvite = withCallableErrors(async (request) => {
         "failed-precondition",
         "This invite has already been accepted.",
       );
-      return serializeLoan(loanRef.id, existingLoan);
+      return serializeLoan(loanRef.id, existingLoan, invite.book);
     }
 
+    assertBookFormatIsLendable(resolveBookFormat(invite.book.binding, invite.book.format));
     const loan: LoanDocument = {
       inviteId: inviteRef.id,
       copyId: invite.copyId,
@@ -1702,9 +1750,10 @@ export const requestReturn = withCallableErrors(async (request) => {
     const loan = loanSnap.data() as LoanDocument;
     const state = makeLoanStateSnapshot(loan);
     const role = assertParticipantRole(state, auth.uid);
+    const formatMetadata = await currentBookFormat(transaction, loan.book);
 
     if (!loan.isOpen || loan.status === "returned" || loan.status === "return_requested") {
-      return serializeLoan(loanRef.id, loan);
+      return serializeLoan(loanRef.id, loan, formatMetadata);
     }
 
     const now = Timestamp.now();
@@ -1733,7 +1782,7 @@ export const requestReturn = withCallableErrors(async (request) => {
       buildReturnRequestNotification(loanRef.id, updatedLoan, role, auth.uid, now),
     );
 
-    return serializeLoan(loanRef.id, updatedLoan);
+    return serializeLoan(loanRef.id, updatedLoan, formatMetadata);
   });
 });
 
@@ -1748,8 +1797,10 @@ export const confirmReturn = withCallableErrors(async (request) => {
     assertDomain(loanSnap.exists, "not-found", "Loan not found.");
 
     const loan = loanSnap.data() as LoanDocument;
+    assertParticipantRole(makeLoanStateSnapshot(loan), auth.uid);
+    const formatMetadata = await currentBookFormat(transaction, loan.book);
     if (!loan.isOpen || loan.status === "returned") {
-      return serializeLoan(loanRef.id, loan);
+      return serializeLoan(loanRef.id, loan, formatMetadata);
     }
 
     const now = Timestamp.now();
@@ -1788,7 +1839,7 @@ export const confirmReturn = withCallableErrors(async (request) => {
       buildReturnConfirmedNotification(loanRef.id, updatedLoan, auth.uid, now),
     );
 
-    return serializeLoan(loanRef.id, updatedLoan);
+    return serializeLoan(loanRef.id, updatedLoan, formatMetadata);
   });
 });
 
@@ -1869,6 +1920,7 @@ export const sendLoanReminder = withCallableErrors(async (request) => {
     const state = makeLoanStateSnapshot(loan);
     const role = assertParticipantRole(state, auth.uid);
     assertDomain(state.isOpen, "failed-precondition", "This loan is already closed.");
+    const formatMetadata = await currentBookFormat(transaction, loan.book);
 
     const now = Timestamp.now();
     const nextAllowedAt = nextManualReminderAllowedAt(state, MANUAL_REMINDER_COOLDOWN_HOURS);
@@ -1906,7 +1958,7 @@ export const sendLoanReminder = withCallableErrors(async (request) => {
     );
 
     return {
-      ...serializeLoan(loanRef.id, updatedLoan),
+      ...serializeLoan(loanRef.id, updatedLoan, formatMetadata),
       nextReminderAllowedAtMillis: nextReminderAllowedAt.getTime(),
     };
   });

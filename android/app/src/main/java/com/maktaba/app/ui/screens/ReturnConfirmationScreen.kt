@@ -1,250 +1,287 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.maktaba.app.R
+import com.maktaba.app.data.ActiveLoan
+import com.maktaba.app.data.Book
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
-import com.maktaba.app.data.LoanStatus
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.ConfirmationDialog
-import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.LoadingState
-import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.theme.BookHavenTheme
-import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
-import com.maktaba.app.util.LoanTimeFormatter
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
 fun ReturnConfirmationScreen(navController: NavHostController, bookId: String) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
+    val currentBook = LibraryRepository.loanBookById(bookId)
+    val currentLoan = LibraryRepository.loanFor(bookId)
+    // Retain the title and role while the confirmed borrower copy disappears.
+    var retainedBook by remember(bookId) { mutableStateOf<Book?>(null) }
+    var retainedLoan by remember(bookId) { mutableStateOf<ActiveLoan?>(null) }
+    if (currentBook != null) retainedBook = currentBook
+    if (currentLoan != null) retainedLoan = currentLoan
+    val book = currentBook ?: retainedBook
+    val loan = currentLoan ?: retainedLoan
+    var loading by remember(bookId) { mutableStateOf(false) }
+    var showConfirmation by remember(bookId) { mutableStateOf(false) }
+    var completedLoanId by rememberSaveable(bookId) { mutableStateOf<String?>(null) }
+    var requestedLoanId by rememberSaveable(bookId) { mutableStateOf<String?>(null) }
+    var error by remember(bookId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    var loading by remember { mutableStateOf(false) }
-    var showConfirmation by remember { mutableStateOf(false) }
-
-    val book = LibraryRepository.bookById(bookId)
-    val loan = LibraryRepository.activeLoanFor(bookId)
-    // Do not claim the loan is missing while its snapshot is still in flight.
-    if ((book == null || loan == null) &&
-        (!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans)
-    ) {
+    val back: () -> Unit = { navController.popBackStack() }
+    val library: () -> Unit = { navController.navigate(Routes.HomeLibrary.route) }
+    val loadError = LibraryRepository.libraryError ?: LibraryRepository.loansError
+    if (loadError != null && (completedLoanId == null || completedLoanId != loan?.id)) {
+        LoanLoadFailure(loadError, back, library)
+        return
+    }
+    if ((!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans) && book == null) {
         LoadingState("Loading this return")
         return
     }
     if (book == null || loan == null) {
-        UnavailableState(
-            title = "Loan unavailable",
-            message = "This return is no longer available. The loan may already be closed.",
-            onBack = navController::popBackStack,
-            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
-        )
+        UnavailableState("Loan unavailable", "This return is no longer available.", back, library)
         return
     }
-
-    val returnRequested = loan.status == LoanStatus.RETURN_REQUESTED
-    val waitingForCounterparty =
-        returnRequested && loan.returnRequestedById == FirebaseSession.currentUser?.uid
-    val confirmingCounterpartyRequest = returnRequested && !waitingForCounterparty
-    val counterpartyLabel = if (loan.isLender) "borrower" else "lender"
-
+    val actualStage = returnStage(loan, FirebaseSession.currentUser?.uid)
+    val stage = when {
+        completedLoanId == loan.id || actualStage == ReturnStage.COMPLETE -> ReturnStage.COMPLETE
+        requestedLoanId == loan.id && actualStage == ReturnStage.REQUEST -> ReturnStage.WAITING
+        else -> actualStage
+    }
     if (showConfirmation) {
         ConfirmationDialog(
-            title = if (confirmingCounterpartyRequest) "Confirm the return?" else "Request the return?",
-            message = if (confirmingCounterpartyRequest) {
-                "This closes the loan for both of you and puts the book back on the shelf."
+            title = if (stage == ReturnStage.CONFIRM) "Confirm the Return?" else "Request Return Confirmation?",
+            message = if (stage == ReturnStage.CONFIRM) {
+                "Only confirm after the physical handover. This closes the loan for both readers."
             } else {
-                "Your $counterpartyLabel will be notified and asked to confirm."
+                "The other reader must confirm too. A request alone does not close the loan."
             },
-            confirmLabel = if (confirmingCounterpartyRequest) "Confirm return" else "Request return",
+            confirmLabel = if (stage == ReturnStage.CONFIRM) "Confirm Return" else "Request Confirmation",
             loading = loading,
-            destructive = confirmingCounterpartyRequest,
-            onConfirm = {
-                loading = true
-                scope.launch {
-                    runCatching { LibraryRepository.confirmReturn(book.id) }
-                        .onSuccess {
-                            showConfirmation = false
-                            navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) }
-                        }
-                        .onFailure {
-                            showConfirmation = false
-                            snackbarHostState.showSnackbar(
-                                it.localizedMessage ?: "We could not update this return."
-                            )
-                        }
-                    loading = false
+            onConfirm = confirm@{
+                if (loading) return@confirm
+                val live = LibraryRepository.loanFor(bookId)
+                if (live == null) {
+                    showConfirmation = false
+                    error = "This return is no longer available. Review the current loan."
+                    return@confirm
                 }
+                val liveStage = returnStage(live, FirebaseSession.currentUser?.uid)
+                if (liveStage != stage || liveStage !in setOf(ReturnStage.REQUEST, ReturnStage.CONFIRM)) {
+                    showConfirmation = false
+                    error = "This loan has changed. Review its current return status."
+                    return@confirm
+                }
+                loading = true
+                error = null
+                scope.launch {
+                    try {
+                        LibraryRepository.confirmReturn(bookId)
+                        if (liveStage == ReturnStage.CONFIRM) completedLoanId = live.id else requestedLoanId = live.id
+                        showConfirmation = false
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        showConfirmation = false
+                        error = failure.localizedMessage ?: "We could not update this return. Try again."
+                    } finally {
+                        loading = false
+                }
+                    }
             },
-            onDismiss = { showConfirmation = false }
+            onDismiss = { if (!loading) showConfirmation = false }
         )
     }
-
-    MaktabaScaffold(
-        snackbarHostState = snackbarHostState,
-        topBar = {
-            ScreenTopBar(title = "Return", onBack = { navController.popBackStack() })
+    ReturnConfirmationContent(
+        book, loan, stage, loading, error, back,
+        onSubmit = { if (!loading && stage in setOf(ReturnStage.REQUEST, ReturnStage.CONFIRM)) showConfirmation = true },
+        onOpenLoan = { openJourneyLoan(navController, bookId) },
+        onLoans = {
+            if (!navController.popBackStack(Routes.Loans.route, false)) {
+                navController.navigate(Routes.Loans.route) { launchSingleTop = true }
+            }
         }
-    ) { innerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(colors.background)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = spacing.gutter)
-        ) {
+    )
+}
+
+@Composable
+fun ReturnConfirmationContent(
+    book: Book,
+    loan: ActiveLoan,
+    stage: ReturnStage,
+    loading: Boolean,
+    error: String?,
+    onBack: () -> Unit,
+    onSubmit: () -> Unit,
+    onOpenLoan: () -> Unit,
+    onLoans: () -> Unit
+) {
+    val colors = MaktabaTheme.colors
+    val complete = stage == ReturnStage.COMPLETE
+    LoanPage(
+        "Return",
+        onBack,
+        footer = {
+            if (complete) {
+                PrimaryButton("Back to Loans", onClick = onLoans)
+            } else {
+                PrimaryButton(
+                    text = when (stage) {
+                        ReturnStage.WAITING -> "Waiting for Confirmation"
+                        ReturnStage.CONFIRM -> if (error != null) "Try Confirmation Again" else "Confirm the Return"
+                        else -> if (error != null) "Try Request Again" else "Request Return Confirmation"
+                    },
+                    enabled = !loading && stage in setOf(ReturnStage.REQUEST, ReturnStage.CONFIRM),
+                    loading = loading,
+                    onClick = onSubmit
+                )
+                LoanSecondaryButton(
+                    if (stage == ReturnStage.WAITING) "Back to This Loan" else "Not Yet",
+                    enabled = !loading,
+                    onClick = if (stage == ReturnStage.WAITING) onOpenLoan else onBack
+                )
+            }
+        }
+    ) {
+        if (complete) {
+            Spacer(Modifier.height(22.dp))
+            Icon(Icons.Filled.Check, contentDescription = "Return complete", tint = colors.success,
+                modifier = Modifier.align(Alignment.CenterHorizontally).size(52.dp)
+                    .clip(CircleShape).background(colors.successContainer).padding(13.dp))
+            Spacer(Modifier.height(22.dp))
+        } else {
+            Spacer(Modifier.height(1.dp))
             Image(
-                painter = painterResource(R.drawable.illus_return_confirmation),
+                painterResource(R.drawable.illus_return_confirmation),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(130.dp)
+                modifier = Modifier.fillMaxWidth().height(103.dp)
             )
-            Spacer(Modifier.height(spacing.xs))
-            Text(
-                when {
-                    confirmingCounterpartyRequest -> "Confirm the return"
-                    waitingForCounterparty -> "Return requested"
-                    else -> "Request the return"
-                },
-                style = MaterialTheme.typography.headlineSmall,
-                color = colors.ink,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().semantics { heading() }
-            )
-            Spacer(Modifier.height(spacing.xxs))
-            Text(
-                when {
-                    confirmingCounterpartyRequest ->
-                        "Your $counterpartyLabel says this book is back with its owner."
-                    waitingForCounterparty ->
-                        "Waiting for your $counterpartyLabel to confirm they have handed it over."
-                    else ->
-                        "Your $counterpartyLabel will be asked to confirm the hand-over."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkSoft,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(spacing.md))
-            MaktabaCard {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    BookCoverImage(
-                        book = book,
-                        contentScale = ContentScale.Crop,
-                        decorative = true,
-                        modifier = Modifier
-                            .width(84.dp)
-                            .aspectRatio(0.68f)
-                            .clip(MaktabaShapes.cover)
-                    )
-                    Spacer(Modifier.width(spacing.md))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            book.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colors.ink,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            book.author,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
-                        Spacer(Modifier.height(spacing.xs))
-                        Text(
-                            "With ${loan.counterpartyName}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.inkSoft
-                        )
-                        Text(
-                            "Due ${LoanTimeFormatter.formatDate(loan.dueAt)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.inkSoft
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(spacing.lg))
-            PrimaryButton(
-                text = when {
-                    confirmingCounterpartyRequest -> "Confirm the return"
-                    waitingForCounterparty -> "Waiting for confirmation"
-                    else -> "Request the return"
-                },
-                enabled = !waitingForCounterparty && !loading,
-                loading = loading,
-                leadingIcon = {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = colors.onPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                onClick = { showConfirmation = true }
-            )
-            Spacer(Modifier.height(spacing.xxs))
-            TextActionButton(text = "Not now", onClick = { navController.popBackStack() })
-            Spacer(Modifier.height(spacing.lg))
+            Spacer(Modifier.height(17.dp))
         }
+        LoanIntro(
+            title = when (stage) {
+                ReturnStage.COMPLETE -> "Back Where It Belongs"
+                ReturnStage.WAITING -> "One Last Confirmation"
+                ReturnStage.CONFIRM -> "Confirm the Return"
+                else -> "Back With Its Owner?"
+            },
+            message = when (stage) {
+                ReturnStage.COMPLETE -> "Both readers confirmed."
+                ReturnStage.WAITING -> "Your part is confirmed. ${loan.counterpartyName} still needs to confirm the handover. This loan is not closed yet."
+                ReturnStage.CONFIRM -> "${loan.counterpartyName} says this book is back with its owner. Only confirm if ${if (loan.isLender) "you have received this copy" else "you have handed this copy back"}."
+                ReturnStage.REQUEST -> "Only continue once ${if (loan.isLender) "${loan.counterpartyName} has handed this copy back to you" else "you have handed this copy back to ${loan.counterpartyName}"}. The other reader will be asked to confirm."
+                ReturnStage.UNAVAILABLE -> "This loan cannot be changed right now. Please refresh and review its status."
+            },
+            compactMessage = true,
+            success = complete
+        )
+        Spacer(Modifier.height(if (complete) 26.dp else 19.dp))
+        LoanBookSummary(book, compact = !complete)
+        Spacer(Modifier.height(23.dp))
+        ReturnConfirmations(loan.counterpartyName, stage)
+        if (error != null) {
+            Spacer(Modifier.height(12.dp))
+            LoanFeedback(error, error = true)
+        }
+        Spacer(Modifier.height(17.dp))
+        LoanNote(
+            when {
+                complete && loan.isLender -> "Both readers confirmed the handover. This copy is back on your shelf, and the loan is closed for both readers."
+                complete -> "Both readers confirmed the handover. This copy has left your borrowed books and returned to ${loan.counterpartyName}'s shelf."
+                stage == ReturnStage.CONFIRM -> "Your confirmation closes this loan for both readers."
+                else -> "A request alone does not close the loan. Both readers must confirm."
+            },
+            if (complete) Icons.AutoMirrored.Outlined.MenuBook else Icons.Outlined.SwapHoriz
+        )
     }
 }
 
-@Preview(showBackground = true, name = "Return")
 @Composable
-private fun ReturnConfirmationScreenPreview() {
-    BookHavenTheme {
-        ReturnConfirmationScreen(navController = rememberNavController(), bookId = "preview")
+private fun ReturnConfirmations(counterparty: String, stage: ReturnStage) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOf(
+            "You" to (stage == ReturnStage.WAITING || stage == ReturnStage.COMPLETE),
+            counterparty to (stage == ReturnStage.CONFIRM || stage == ReturnStage.COMPLETE)
+        ).forEach { (name, confirmed) ->
+            Column(Modifier.weight(1f)) {
+                HorizontalDivider(color = MaktabaTheme.colors.divider)
+                Row(
+                    Modifier.padding(vertical = 15.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        Modifier.size(28.dp).clip(CircleShape).background(
+                            if (confirmed) MaktabaTheme.colors.successContainer else MaktabaTheme.colors.surfaceAlt
+                        ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                    Icon(
+                        if (confirmed) Icons.Filled.Check else Icons.Outlined.Schedule,
+                        contentDescription = null,
+                        tint = if (confirmed) MaktabaTheme.colors.success else MaktabaTheme.colors.inkMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    }
+                    Column {
+                        Text(name, style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 11.sp, lineHeight = 17.6.sp, fontWeight = FontWeight.Medium,
+                            lineHeightStyle = LoanLineHeightStyle
+                        ), color = MaktabaTheme.colors.ink)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (confirmed) "Confirmed" else if (stage == ReturnStage.REQUEST) "Not confirmed yet" else "Awaiting confirmation",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 9.sp, lineHeight = 15.3.sp, lineHeightStyle = LoanLineHeightStyle
+                            ),
+                            color = if (confirmed) MaktabaTheme.colors.success else MaktabaTheme.colors.inkMuted
+                        )
+                    }
+                }
+                HorizontalDivider(color = MaktabaTheme.colors.divider)
+            }
+        }
     }
 }

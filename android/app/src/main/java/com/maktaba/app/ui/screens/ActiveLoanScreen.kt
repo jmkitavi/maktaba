@@ -1,294 +1,186 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.Role
+import com.maktaba.app.data.ActiveLoan
+import com.maktaba.app.data.Book
+import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.data.LoanStatus
 import com.maktaba.app.nav.Routes
-import com.maktaba.app.ui.components.BookCoverImage
-import com.maktaba.app.ui.components.LoanProgressTrack
-import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.LoadingState
-import com.maktaba.app.ui.components.MaktabaScaffold
+import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.components.ScreenTopBar
-import com.maktaba.app.ui.components.SecondaryButton
-import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.UnavailableState
+import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.statusVisuals
-import com.maktaba.app.ui.theme.BookHavenTheme
-import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
+import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.util.LoanTimeFormatter
-import kotlinx.coroutines.launch
+import java.time.Instant
 
 @Composable
-fun ActiveLoanScreen(navController: NavHostController, bookId: String) {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-    var reminderLoading by remember { mutableStateOf(false) }
-
+fun ActiveLoanScreen(navController: androidx.navigation.NavHostController, bookId: String) {
     val book = LibraryRepository.bookById(bookId)
     val loan = LibraryRepository.activeLoanFor(bookId)
-    // Do not claim the loan is missing while its snapshot is still in flight.
-    if ((book == null || loan == null) &&
-        (!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans)
-    ) {
+    val back: () -> Unit = { navController.popBackStack() }
+    val library: () -> Unit = { navController.navigate(Routes.HomeLibrary.route) }
+    val error = LibraryRepository.libraryError ?: LibraryRepository.loansError
+    if (error != null) {
+        LoanLoadFailure(error, back, library)
+        return
+    }
+    if (!LibraryRepository.hasLoadedLibrary || !LibraryRepository.hasLoadedLoans) {
         LoadingState("Loading this loan")
         return
     }
-    if (book == null || loan == null) {
-        UnavailableState(
-            title = "Loan unavailable",
-            message = "We could not find this loan. It may already have been closed.",
-            onBack = navController::popBackStack,
-            onLibrary = { navController.navigate(Routes.HomeLibrary.route) { popUpTo(0) } }
-        )
+    if (book == null || loan == null || loan.status !in setOf(LoanStatus.ACTIVE, LoanStatus.RETURN_REQUESTED)) {
+        UnavailableState("Loan unavailable", "This loan may already have been closed.", back, library)
         return
     }
-
-    val counterpartyLabel = if (loan.isLender) "Borrower" else "Lender"
-    val urgency = LoanTimeFormatter.urgency(loan.dueAt)
-    val visuals = statusVisuals(colors, book.status, urgency)
-    val returnRequested = loan.status == LoanStatus.RETURN_REQUESTED
-    val waitingForConfirmation = returnRequested && loan.returnRequestedByCurrentUser
-    val returnActionLabel = when {
-        waitingForConfirmation -> "Waiting for confirmation"
-        returnRequested -> "Confirm the return"
-        else -> "Request the return"
-    }
-
-    MaktabaScaffold(
-        snackbarHostState = snackbarHostState,
-        topBar = { ScreenTopBar(title = "Active loan", onBack = { navController.popBackStack() }) }
-    ) { innerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(colors.background)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = spacing.gutter)
-        ) {
-            Spacer(Modifier.height(spacing.sm))
-
-            MaktabaCard {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    BookCoverImage(
-                        book = book,
-                        contentScale = ContentScale.Crop,
-                        decorative = true,
-                        modifier = Modifier
-                            .width(100.dp)
-                            .aspectRatio(0.68f)
-                            .clip(MaktabaShapes.cover)
-                    )
-                    Spacer(Modifier.width(spacing.md))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            book.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = colors.ink,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.semantics { heading() }
-                        )
-                        Text(
-                            book.author,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
-                        Spacer(Modifier.height(spacing.xs))
-                        StatusPill(visuals = visuals, compact = true)
-                        Spacer(Modifier.height(spacing.sm))
-                        DetailRow(Icons.Filled.Person, counterpartyLabel, loan.counterpartyName)
-                        Spacer(Modifier.height(spacing.xs))
-                        DetailRow(
-                            Icons.Filled.CalendarToday,
-                            "Due back",
-                            LoanTimeFormatter.formatDate(loan.dueAt)
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(spacing.lg))
-
-            Text(
-                "Return timeline",
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() }
-            )
-            Spacer(Modifier.height(spacing.xs))
-            MaktabaCard {
-                LoanProgressTrack(
-                    startLabel = loan.acceptedAt
-                        ?.let { "Lent ${LoanTimeFormatter.formatDate(it)}" }
-                        ?: "Lent",
-                    endLabel = LoanTimeFormatter.formatDate(loan.dueAt),
-                    fraction = LoanTimeFormatter.elapsedFraction(loan.acceptedAt, loan.dueAt),
-                    urgency = urgency,
-                    summary = LoanTimeFormatter.remaining(loan.dueAt)
-                )
-            }
-
-            if (returnRequested) {
-                Spacer(Modifier.height(spacing.sm))
-                Text(
-                    if (waitingForConfirmation) {
-                        "You have asked for this book back. Waiting for the other person to confirm."
-                    } else {
-                        "The other person marked this book as returned. Confirm to close the loan."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkSoft
-                )
-            }
-
-            Spacer(Modifier.height(spacing.lg))
-
-            if (loan.isLender) {
-                PrimaryButton(
-                    text = "Send a reminder",
-                    loading = reminderLoading,
-                    enabled = !reminderLoading,
-                    leadingIcon = {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            tint = colors.onPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    onClick = {
-                        reminderLoading = true
-                        scope.launch {
-                            // Feedback goes through the snackbar host rather than a loose
-                            // string compared against a hard-coded success message.
-                            runCatching { LibraryRepository.sendReminder(book.id) }
-                                .onSuccess {
-                                    snackbarHostState.showSnackbar(
-                                        "Reminder sent to ${loan.counterpartyName}"
-                                    )
-                                }
-                                .onFailure {
-                                    snackbarHostState.showSnackbar(
-                                        it.localizedMessage ?: "We could not send that reminder."
-                                    )
-                                }
-                            reminderLoading = false
-                        }
-                    }
-                )
-                Spacer(Modifier.height(spacing.xs))
-            }
-
-            SecondaryButton(
-                text = returnActionLabel,
-                enabled = !waitingForConfirmation,
-                leadingIcon = {
-                    Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint = colors.onSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                onClick = {
-                    navController.navigate(Routes.ReturnConfirmation.createRoute(book.id))
-                }
-            )
-
-            Spacer(Modifier.height(spacing.xs))
-            PrimaryButton(
-                text = "View the book",
-                leadingIcon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.MenuBook,
-                        contentDescription = null,
-                        tint = colors.onPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                onClick = { navController.navigate(Routes.BookDetail.createRoute(book.id)) }
-            )
-            Spacer(Modifier.height(spacing.lg))
+    ActiveLoanContent(
+        book = book,
+        loan = loan,
+        stage = returnStage(loan, FirebaseSession.currentUser?.uid),
+        onBack = back,
+        onReminder = { navController.navigate(Routes.ReturnReminder.createRoute(bookId, true)) },
+        onReturn = { navController.navigate(Routes.ReturnConfirmation.createRoute(bookId)) },
+        onBook = { navController.navigate(Routes.BookDetail.createRoute(bookId)) },
+        onReader = loan.counterpartyUid.takeIf(String::isNotBlank)?.let { uid ->
+            { navController.navigate(Routes.ReaderProfile.createRoute(uid)) }
         }
-    }
+    )
 }
 
 @Composable
-private fun DetailRow(icon: ImageVector, label: String, value: String) {
+fun ActiveLoanContent(
+    book: Book,
+    loan: ActiveLoan,
+    stage: ReturnStage,
+    onBack: () -> Unit,
+    onReminder: () -> Unit,
+    onReturn: () -> Unit,
+    onBook: () -> Unit,
+    onReader: (() -> Unit)? = null,
+    now: Instant = Instant.now()
+) {
     val colors = MaktabaTheme.colors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.semantics(mergeDescendants = true) {}
+    LoanPage(
+        "Active Loan",
+        onBack,
+        footer = {
+            if (loan.isLender && stage == ReturnStage.REQUEST) {
+                PrimaryButton("Send a Reminder", onClick = onReminder)
+            }
+            val returnLabel = when (stage) {
+                    ReturnStage.WAITING -> "Waiting for Confirmation"
+                    ReturnStage.CONFIRM -> "Review the Return"
+                    else -> "Start a Return"
+            }
+            if (loan.isLender && stage == ReturnStage.REQUEST) {
+                LoanSecondaryButton(returnLabel, onClick = onReturn)
+            } else {
+                PrimaryButton(returnLabel, enabled = stage == ReturnStage.REQUEST || stage == ReturnStage.CONFIRM,
+                    onClick = onReturn)
+            }
+        }
     ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(colors.surfaceAlt),
-            contentAlignment = Alignment.Center
+        LoanBookSummary(book)
+        Spacer(Modifier.height(13.dp))
+        StatusPill(visuals = statusVisuals(colors, book.status), compact = true)
+        Spacer(Modifier.height(13.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().then(
+                if (onReader != null) Modifier.clickable(onClickLabel = "View Reader Profile", onClick = onReader)
+                else Modifier
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(14.dp))
+            Box(Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt), contentAlignment = Alignment.Center) {
+                Text(loan.counterpartyName.take(1), style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                    color = colors.primary)
+            }
+            Column {
+                Text(if (loan.isLender) "Borrower" else "Lender",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 14.4.sp, lineHeightStyle = LoanLineHeightStyle
+                    ),
+                    color = colors.inkMuted)
+                Spacer(Modifier.height(2.dp))
+                Text(loan.counterpartyName, style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp, lineHeight = 19.2.sp, lineHeightStyle = LoanLineHeightStyle
+                ),
+                    color = colors.ink)
+            }
         }
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = colors.inkMuted)
-            Text(value, style = MaterialTheme.typography.labelMedium, color = colors.ink)
+        Spacer(Modifier.height(13.dp))
+        MaktabaCard(
+            modifier = Modifier.border(BorderStroke(1.dp, colors.divider), MaktabaShapes.medium),
+            contentPadding = PaddingValues(13.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = colors.primary,
+                        modifier = Modifier.size(16.dp))
+                }
+                Column {
+                    Text("Agreed Return Date", style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 14.4.sp, lineHeightStyle = LoanLineHeightStyle
+                    ),
+                        color = colors.inkMuted)
+                    Spacer(Modifier.height(6.dp))
+                    Text(LoanTimeFormatter.formatDate(loan.dueAt),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 22.4.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            lineHeightStyle = LoanLineHeightStyle
+                        ), color = colors.ink)
+                }
+            }
         }
-    }
-}
-
-@Preview(showBackground = true, name = "Active loan")
-@Composable
-private fun ActiveLoanScreenPreview() {
-    BookHavenTheme {
-        ActiveLoanScreen(navController = rememberNavController(), bookId = "preview")
+        LoanTimeline(loan, now)
+        LoanFeedback(when (stage) {
+            ReturnStage.WAITING -> "Your part is confirmed. Waiting for ${loan.counterpartyName} to confirm the handover. The loan is still open."
+            ReturnStage.CONFIRM -> "${loan.counterpartyName} says the book is back with its owner. Review the handover before closing the loan."
+            ReturnStage.UNAVAILABLE -> "This return cannot be changed right now. Refresh the loan before continuing."
+            else -> null
+        })
+        Spacer(Modifier.height(15.dp))
+        Row(
+            Modifier.defaultMinSize(minHeight = 48.dp).clickable(role = Role.Button, onClick = onBook)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("View the Book", style = MaterialTheme.typography.bodySmall, color = colors.primary)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.primary,
+                modifier = Modifier.size(13.dp))
+        }
     }
 }

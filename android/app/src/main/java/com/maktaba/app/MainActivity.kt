@@ -1,10 +1,7 @@
 package com.maktaba.app
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,12 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,6 +26,8 @@ import androidx.navigation.navArgument
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.data.LoanInviteCode
+import com.maktaba.app.data.DevicePreferences
+import com.maktaba.app.data.CollectionsRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.screens.*
 import com.maktaba.app.ui.theme.BookHavenTheme
@@ -40,13 +38,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
-        }
+        DevicePreferences.initialize(this)
 
         // Real launch starts at Onboarding. A notification, a maktaba:// link, or the debug
         // `--es route <route>` extra selects a deeper destination instead - which is layered
@@ -121,11 +113,18 @@ internal fun validatedDebugRoute(route: String): String? {
         Routes.ScreenPicker.route,
         Routes.HomeLibrary.route,
         Routes.Loans.route,
+        Routes.Collections.route,
         Routes.Wishlist.route,
         Routes.Profile.route,
         Routes.AddBook.route,
         Routes.Notifications.route,
         Routes.ScanEnterCode.route,
+        Routes.Settings.route,
+        Routes.SettingsAppearance.route,
+        Routes.SettingsNotifications.route,
+        Routes.About.route,
+        Routes.LibrarySharing.route,
+        Routes.CollectionCreate.route,
     )
     if (route in staticRoutes) return route
     val idPattern = "[A-Za-z0-9_-]{6,128}"
@@ -135,10 +134,11 @@ internal fun validatedDebugRoute(route: String): String? {
             it.matches(Regex("lend_book_config/$idPattern")) ||
             it.matches(Regex("active_loan/$idPattern")) ||
             it.matches(Regex("return_confirmation/$idPattern")) ||
-            it.matches(Regex("return_reminder/$idPattern")) ||
-            it.removePrefix("confirm_borrow/").takeIf { code ->
-                LoanInviteCode.parse(code) != null
-            } != null
+            it.matches(Regex("return_reminder/$idPattern(\\?review=true)?")) ||
+            it.matches(Regex("(catalogue_book|shared_library|reader_profile|report_library)/$idPattern")) ||
+            it.matches(Regex("(collection|collection_edit|collection_books|collection_privacy|add_to_collection)/$idPattern")) ||
+            it.matches(Regex("shared_collection/$idPattern/$idPattern")) ||
+            (it.startsWith("confirm_borrow/") && LoanInviteCode.parse(it.substringAfter('/')) != null)
     }
 }
 
@@ -188,14 +188,21 @@ fun MaktabaApp(
     if (user == null) {
         SignedOutNavHost()
     } else {
-        DisposableEffect(user?.uid) {
-            LibraryRepository.start(requireNotNull(user).uid)
-            onDispose { LibraryRepository.stop() }
+        val uid = requireNotNull(user).uid
+        key(uid) {
+            DisposableEffect(uid) {
+                LibraryRepository.start(uid)
+                CollectionsRepository.start(uid)
+                onDispose {
+                    LibraryRepository.stop()
+                    CollectionsRepository.stop()
+                }
+            }
+            MaktabaNavHost(
+                pendingRoute = pendingRoute,
+                onPendingRouteHandled = onPendingRouteHandled
+            )
         }
-        MaktabaNavHost(
-            pendingRoute = pendingRoute,
-            onPendingRouteHandled = onPendingRouteHandled
-        )
     }
 }
 
@@ -217,6 +224,11 @@ fun MaktabaNavHost(
     val bookIdArg = navArgument("bookId") { type = NavType.StringType }
     val inviteIdArg = navArgument("inviteId") { type = NavType.StringType }
     val inviteCodeArg = navArgument("inviteCode") { type = NavType.StringType }
+    val catalogIdArg = navArgument("catalogId") { type = NavType.StringType }
+    val collectionIdArg = navArgument("collectionId") { type = NavType.StringType }
+    val ownerUidArg = navArgument("ownerUid") { type = NavType.StringType }
+    val readerUidArg = navArgument("readerUid") { type = NavType.StringType }
+    val reviewArg = navArgument("review") { type = NavType.BoolType; defaultValue = false }
 
     // The library is always the root of the stack, so Back from a notification-launched
     // screen lands on the shelf instead of dropping the user out of the app.
@@ -232,11 +244,51 @@ fun MaktabaNavHost(
         composable(Routes.ScreenPicker.route) { ScreenPickerScreen(navController) }
         composable(Routes.HomeLibrary.route) { HomeLibraryScreen(navController) }
         composable(Routes.Loans.route) { LoansScreen(navController) }
+        composable(Routes.Collections.route) { CollectionsScreen(navController) }
         composable(Routes.Wishlist.route) { WishlistScreen(navController) }
         composable(Routes.Profile.route) { ProfileScreen(navController) }
         composable(Routes.AddBook.route) { AddBookScreen(navController) }
         composable(Routes.Notifications.route) { NotificationsScreen(navController) }
         composable(Routes.ScanEnterCode.route) { ScanEnterCodeScreen(navController) }
+        composable(Routes.Settings.route) { SettingsScreen(navController) }
+        composable(Routes.SettingsAppearance.route) { SettingsScreen(navController, SettingsPage.APPEARANCE) }
+        composable(Routes.SettingsNotifications.route) { SettingsScreen(navController, SettingsPage.NOTIFICATIONS) }
+        composable(Routes.About.route) { SettingsScreen(navController, SettingsPage.ABOUT) }
+        composable(Routes.LibrarySharing.route) { LibrarySharingScreen(navController) }
+        composable(Routes.CollectionCreate.route) { CollectionCreateScreen(navController) }
+        composable(Routes.CatalogueBookDetail.route, arguments = listOf(catalogIdArg)) { entry ->
+            BookDetailScreen(navController, requireNotNull(entry.arguments?.getString("catalogId")), catalogueOnly = true)
+        }
+        composable(Routes.SharedLibrary.route, arguments = listOf(ownerUidArg)) { entry ->
+            SharedLibraryScreen(navController, requireNotNull(entry.arguments?.getString("ownerUid")))
+        }
+        composable(Routes.CollectionDetail.route, arguments = listOf(collectionIdArg)) { entry ->
+            CollectionDetailScreen(navController, requireNotNull(entry.arguments?.getString("collectionId")))
+        }
+        composable(Routes.CollectionEdit.route, arguments = listOf(collectionIdArg)) { entry ->
+            CollectionEditScreen(navController, requireNotNull(entry.arguments?.getString("collectionId")))
+        }
+        composable(Routes.CollectionBooks.route, arguments = listOf(collectionIdArg)) { entry ->
+            CollectionBooksScreen(navController, requireNotNull(entry.arguments?.getString("collectionId")))
+        }
+        composable(Routes.CollectionPrivacy.route, arguments = listOf(collectionIdArg)) { entry ->
+            CollectionPrivacyScreen(navController, requireNotNull(entry.arguments?.getString("collectionId")))
+        }
+        composable(Routes.AddToCollection.route, arguments = listOf(catalogIdArg)) { entry ->
+            AddToCollectionScreen(navController, requireNotNull(entry.arguments?.getString("catalogId")))
+        }
+        composable(Routes.ReaderProfile.route, arguments = listOf(readerUidArg)) { entry ->
+            ReaderProfileScreen(navController, requireNotNull(entry.arguments?.getString("readerUid")))
+        }
+        composable(Routes.SharedCollection.route, arguments = listOf(ownerUidArg, collectionIdArg)) { entry ->
+            SharedCollectionScreen(
+                navController, requireNotNull(entry.arguments?.getString("ownerUid")),
+                requireNotNull(entry.arguments?.getString("collectionId"))
+            )
+        }
+        composable(Routes.ReportLibrary.route, arguments = listOf(ownerUidArg)) { entry ->
+            ReportLibraryScreen(navController, requireNotNull(entry.arguments?.getString("ownerUid")))
+        }
         composable(Routes.BookDetail.route, arguments = listOf(bookIdArg)) { entry ->
             BookDetailScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
         }
@@ -264,8 +316,11 @@ fun MaktabaNavHost(
                 requireNotNull(entry.arguments?.getString("bookId"))
             )
         }
-        composable(Routes.ReturnReminder.route, arguments = listOf(bookIdArg)) { entry ->
-            ReturnReminderScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
+        composable(Routes.ReturnReminder.route, arguments = listOf(bookIdArg, reviewArg)) { entry ->
+            ReturnReminderScreen(
+                navController, requireNotNull(entry.arguments?.getString("bookId")),
+                review = entry.arguments?.getBoolean("review") == true
+            )
         }
     }
 }

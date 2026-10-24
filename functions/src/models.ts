@@ -17,6 +17,8 @@ export interface BookSnapshot {
   author: string;
   coverStoragePath: string;
   coverUrl?: string;
+  binding?: string;
+  format?: BookFormat;
 }
 
 export interface CatalogBookRecord {
