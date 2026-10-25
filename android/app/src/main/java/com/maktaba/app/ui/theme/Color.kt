@@ -50,6 +50,11 @@ data class MaktabaColors(
     val navActive: Color,
     val navInactive: Color,
     val skeleton: Color,
+    val sage: Color,
+    val ochre: Color,
+    val terracotta: Color,
+    val sageLine: Color,
+    val terraAction: Color,
     val jacketPaper: Color = Color(0xFFE7DBC5),
     val jacketInk: Color = Color(0xFF58472F),
     val jacketSpine: Color = Color(0xFFBCAA89),
@@ -59,7 +64,7 @@ data class MaktabaColors(
 )
 
 /**
- * Original approved journey palette, shared with the light reference boards.
+ * Soul palette shared with the final light reference boards.
  */
 val MaktabaLightColors = MaktabaColors(
     isDark = false,
@@ -67,14 +72,14 @@ val MaktabaLightColors = MaktabaColors(
     backgroundElevated = Color(0xFFFDF9F2),
     surface = Color(0xFFFFFDF8),
     surfaceAlt = Color(0xFFEEE5D6),
-    divider = Color(0xFFDED2C0),
+    divider = Color(0xFFDFD1BB),
     scrim = Color(0x59000000),
     ink = Color(0xFF392C22),
     inkSoft = Color(0xFF716354),
     inkMuted = Color(0xFF716354),
-    primary = Color(0xFF7C4B2C),
-    primaryDark = Color(0xFF7C4B2C),
-    onPrimary = Color(0xFFFFFDF8),
+    primary = Color(0xFF495D3F),
+    primaryDark = Color(0xFF495D3F),
+    onPrimary = Color(0xFFFFFDF7),
     secondary = Color(0xFF7A6047),
     onSecondary = Color(0xFFFFFFFF),
     accent = Color(0xFF4B6040),
@@ -92,9 +97,14 @@ val MaktabaLightColors = MaktabaColors(
     onChipSelected = Color(0xFFFBF5EB),
     chipUnselected = Color(0xFFEEE5D6),
     onChipUnselected = Color(0xFF716354),
-    navActive = Color(0xFF7C4B2C),
+    navActive = Color(0xFF4B6040),
     navInactive = Color(0xFF716354),
-    skeleton = Color(0xFFEEE5D6)
+    skeleton = Color(0xFFEEE5D6),
+    sage = Color(0xFFE8EDDF),
+    ochre = Color(0xFFF1E5CD),
+    terracotta = Color(0xFFF0DFD4),
+    sageLine = Color(0xFFB4C0A5),
+    terraAction = Color(0xFF99583F)
 )
 
 /**
@@ -103,18 +113,18 @@ val MaktabaLightColors = MaktabaColors(
  */
 val MaktabaDarkColors = MaktabaColors(
     isDark = true,
-    background = Color(0xFF211B16),
+    background = Color(0xFF211C17),
     backgroundElevated = Color(0xFF261F19),
     surface = Color(0xFF2A231D),
     surfaceAlt = Color(0xFF342B22),
-    divider = Color(0xFF46392C),
+    divider = Color(0xFF4B3E30),
     scrim = Color(0x8C000000),
     ink = Color(0xFFF2E7D8),
     inkSoft = Color(0xFFC0AD98),
     inkMuted = Color(0xFFC0AD98),
-    primary = Color(0xFFD8AA80),
-    primaryDark = Color(0xFFD8AA80),
-    onPrimary = Color(0xFF24190F),
+    primary = Color(0xFFB7C8A4),
+    primaryDark = Color(0xFFB7C8A4),
+    onPrimary = Color(0xFF202A1C),
     secondary = Color(0xFF8C7359),
     onSecondary = Color(0xFFFFFFFF),
     accent = Color(0xFFB5C7A2),
@@ -132,9 +142,14 @@ val MaktabaDarkColors = MaktabaColors(
     onChipSelected = Color(0xFF211B16),
     chipUnselected = Color(0xFF342B22),
     onChipUnselected = Color(0xFFC0AD98),
-    navActive = Color(0xFFD8AA80),
+    navActive = Color(0xFFB5C7A2),
     navInactive = Color(0xFFC0AD98),
-    skeleton = Color(0xFF342B22)
+    skeleton = Color(0xFF342B22),
+    sage = Color(0xFF2C3829),
+    ochre = Color(0xFF3B3224),
+    terracotta = Color(0xFF402D25),
+    sageLine = Color(0xFF708361),
+    terraAction = Color(0xFFE0AD8E)
 )
 
 val LocalMaktabaColors = staticCompositionLocalOf { MaktabaLightColors }

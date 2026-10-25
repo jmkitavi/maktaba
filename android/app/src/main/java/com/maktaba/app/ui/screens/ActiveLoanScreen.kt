@@ -1,8 +1,8 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,13 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -26,20 +29,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
 import com.maktaba.app.data.ActiveLoan
+import com.maktaba.app.R
 import com.maktaba.app.data.Book
 import com.maktaba.app.data.FirebaseSession
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.data.LoanStatus
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.LoadingState
-import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.UnavailableState
-import com.maktaba.app.ui.components.StatusPill
 import com.maktaba.app.ui.components.statusVisuals
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.MaktabaShapes
@@ -95,6 +101,7 @@ fun ActiveLoanContent(
     LoanPage(
         "Active Loan",
         onBack,
+        headerArt = R.drawable.illus_loan_shelf,
         footer = {
             if (loan.isLender && stage == ReturnStage.REQUEST) {
                 PrimaryButton("Send a Reminder", onClick = onReminder)
@@ -113,8 +120,21 @@ fun ActiveLoanContent(
         }
     ) {
         LoanBookSummary(book)
-        Spacer(Modifier.height(13.dp))
-        StatusPill(visuals = statusVisuals(colors, book.status), compact = true)
+        val status = statusVisuals(colors, book.status)
+        Column(Modifier.padding(top = 13.dp, bottom = 4.dp)) {
+            Row(
+                Modifier.clip(RoundedCornerShape(4.dp)).background(status.container)
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(status.icon, null, tint = status.content, modifier = Modifier.size(11.dp))
+                Text(status.label, color = status.content, style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium,
+                    lineHeightStyle = LoanLineHeightStyle
+                ))
+            }
+        }
         Spacer(Modifier.height(13.dp))
         Row(
             modifier = Modifier.fillMaxWidth().then(
@@ -142,11 +162,13 @@ fun ActiveLoanContent(
             }
         }
         Spacer(Modifier.height(13.dp))
-        MaktabaCard(
-            modifier = Modifier.border(BorderStroke(1.dp, colors.divider), MaktabaShapes.medium),
-            contentPadding = PaddingValues(13.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = colors.sage, shape = MaktabaShapes.medium,
+            border = BorderStroke(1.dp, colors.divider)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+            Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                 Box(Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt), contentAlignment = Alignment.Center) {
                     Icon(Icons.Outlined.CalendarToday, contentDescription = null, tint = colors.primary,
                         modifier = Modifier.size(16.dp))
@@ -172,15 +194,21 @@ fun ActiveLoanContent(
             ReturnStage.UNAVAILABLE -> "This return cannot be changed right now. Refresh the loan before continuing."
             else -> null
         })
-        Spacer(Modifier.height(15.dp))
-        Row(
-            Modifier.defaultMinSize(minHeight = 48.dp).clickable(role = Role.Button, onClick = onBook)
-                .padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("View the Book", style = MaterialTheme.typography.bodySmall, color = colors.primary)
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.primary,
-                modifier = Modifier.size(13.dp))
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                Modifier.defaultMinSize(minHeight = 48.dp).clickable(role = Role.Button, onClick = onBook)
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("View the Book", style = MaterialTheme.typography.bodySmall, color = colors.primary)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.primary,
+                    modifier = Modifier.size(13.dp))
+            }
+            Image(painterResource(R.drawable.illus_reading_lamp), null, contentScale = ContentScale.Fit,
+                modifier = Modifier.width(104.dp).aspectRatio(350f / 230f)
+                    .graphicsLayer { alpha = if (colors.isDark) 0.75f else 0.85f })
         }
     }
 }

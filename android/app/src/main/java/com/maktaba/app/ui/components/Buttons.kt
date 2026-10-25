@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -153,7 +154,12 @@ fun OutlinedPillButton(
         onClick = onClick,
         enabled = enabled && !loading,
         modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = ButtonHeight),
-        shape = MaktabaShapes.button
+        shape = MaktabaShapes.button,
+        border = BorderStroke(1.dp, colors.sageLine),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = colors.accent,
+            disabledContentColor = colors.accent.copy(alpha = 0.5f)
+        )
     ) {
         if (loading) {
             CircularProgressIndicator(
@@ -163,7 +169,7 @@ fun OutlinedPillButton(
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(text, color = colors.ink, style = MaterialTheme.typography.labelLarge)
+        Text(text, style = MaterialTheme.typography.labelLarge)
     }
 }
 

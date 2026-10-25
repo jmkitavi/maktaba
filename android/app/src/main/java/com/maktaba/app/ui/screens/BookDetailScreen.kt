@@ -1,6 +1,8 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +14,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.DropdownMenu
@@ -29,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,7 +49,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -49,6 +70,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.maktaba.app.R
 import com.maktaba.app.data.BookFormat
 import com.maktaba.app.data.BookStatus
 import com.maktaba.app.data.CollectionsRepository
@@ -77,7 +99,8 @@ import java.time.Clock
 fun BookDetailScreen(
     navController: NavHostController,
     bookId: String,
-    catalogueOnly: Boolean = false
+    catalogueOnly: Boolean = false,
+    onEditBook: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -189,7 +212,12 @@ fun BookDetailScreen(
                 }
             }
         },
-        onManageSharing = { navController.navigate(Routes.LibrarySharing.route) }
+        onManageSharing = { navController.navigate(Routes.LibrarySharing.route) },
+        onEditBook = if (!catalogueOnly && selection?.canEdit == true && book != null) {
+            onEditBook ?: {
+                navController.navigate(Routes.EditOwnedBook.createRoute(book.id))
+            }
+        } else null
     )
 }
 
@@ -208,7 +236,8 @@ fun BookDetailContent(
     saving: Boolean = false,
     hiding: Boolean = false,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
-    clock: Clock = Clock.systemDefaultZone()
+    clock: Clock = Clock.systemDefaultZone(),
+    onEditBook: (() -> Unit)? = null
 ) {
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
@@ -223,24 +252,27 @@ fun BookDetailContent(
     MaktabaScaffold(
         snackbarHostState = snackbarHostState,
         topBar = {
-            ScreenTopBar(
-                title = "",
-                onBack = onBack,
-                actions = {
-                    if (book != null && state.error == null && state.loaded) {
-                        IconButton(
-                            onClick = onSave,
-                            enabled = state.savedLoaded && state.savedError == null && !saving
-                        ) {
-                            Icon(
-                                if (state.saved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = if (state.saved) "Remove from Want to Read" else "Save to Want to Read",
-                                tint = if (state.saved) colors.primary else colors.ink
-                            )
+            Box(Modifier.statusBarsPadding()) {
+                ScreenTopBar(
+                    title = "",
+                    modifier = Modifier.height(62.dp),
+                    onBack = onBack,
+                    actions = {
+                        if (book != null && state.error == null && state.loaded) {
+                            IconButton(
+                                onClick = onSave,
+                                enabled = state.savedLoaded && state.savedError == null && !saving
+                            ) {
+                                Icon(
+                                    if (state.saved) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                    contentDescription = if (state.saved) "Remove from Want to Read" else "Save to Want to Read",
+                                    tint = if (state.saved) colors.primary else colors.ink
+                                )
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         when {
@@ -260,18 +292,19 @@ fun BookDetailContent(
                 primaryLabel = "Back", onPrimary = onBack
             )
             else -> Column(
-                Modifier.fillMaxSize().padding(innerPadding).background(colors.background)
+                Modifier.fillMaxSize().padding(innerPadding)
             ) {
                 Column(
                     Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                         .padding(horizontal = spacing.gutter)
                 ) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    DetailHero {
                         BookCoverImage(
                             book = book, contentScale = ContentScale.Fit, decorative = true,
-                            modifier = Modifier.width(124.dp).aspectRatio(2f / 3f).clip(MaktabaShapes.cover)
+                            modifier = Modifier.width(124.dp).aspectRatio(2f / 3f)
+                                .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
                         )
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(11.dp))
                         Text(
                             book.title, style = MaterialTheme.typography.headlineSmall.copy(
                                 fontSize = 25.sp, lineHeight = 29.sp, letterSpacing = (-0.5).sp
@@ -310,16 +343,6 @@ fun BookDetailContent(
                                 color = colors.inkMuted
                             )
                         }
-                        if (loan != null) {
-                            Spacer(Modifier.height(spacing.xs))
-                            Text(
-                                LoanTimeFormatter.shortRemaining(loan.dueAt, clock) + " · " +
-                                    LoanTimeFormatter.formatDate(loan.dueAt, clock.zone),
-                                color = urgencyColor(urgency),
-                                style = MaterialTheme.typography.bodySmall,
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                     Spacer(Modifier.height(23.dp))
                     Text(
@@ -336,7 +359,19 @@ fun BookDetailContent(
                         ), color = colors.inkSoft
                     )
                     Spacer(Modifier.height(20.dp))
-                    HorizontalDivider(color = colors.divider)
+                    Box(Modifier.fillMaxWidth().height(1.dp)) {
+                        HorizontalDivider(color = colors.divider)
+                        Box(
+                            Modifier.align(Alignment.Center).requiredSize(11.dp)
+                                .background(colors.background),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier.size(5.dp).graphicsLayer { rotationZ = 45f }
+                                    .background(colors.divider)
+                            )
+                        }
+                    }
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 15.dp),
                         horizontalArrangement = Arrangement.spacedBy(spacing.sm)
@@ -363,6 +398,54 @@ fun BookDetailContent(
                             color = colors.inkMuted, style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
                         )
                     }
+                    if (loan != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().padding(top = 13.dp),
+                            color = colors.ochre,
+                            shape = MaktabaShapes.medium,
+                            border = BorderStroke(1.dp, colors.divider)
+                        ) {
+                            Row(
+                                Modifier.padding(13.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(11.dp)
+                            ) {
+                                Box(
+                                    Modifier.size(34.dp).background(colors.terracotta, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.PersonOutline, contentDescription = null,
+                                        tint = colors.terraAction, modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        (if (loan.isLender) "With " else "From ") +
+                                            loan.counterpartyName.ifBlank { "another reader" },
+                                        color = colors.ink,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Row(
+                                        Modifier.padding(top = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Schedule, contentDescription = null,
+                                            tint = urgencyColor(urgency), modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            LoanTimeFormatter.shortRemaining(loan.dueAt, clock) + " · " +
+                                                LoanTimeFormatter.formatDate(loan.dueAt, clock.zone),
+                                            color = urgencyColor(urgency),
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if (state.savedError != null) {
                         Text(state.savedError, style = MaterialTheme.typography.bodySmall, color = colors.danger)
                         TextButton(onClick = onRetry) { Text("Retry saved titles", color = colors.primary) }
@@ -379,11 +462,17 @@ fun BookDetailContent(
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Text(
-                                "More book actions", color = colors.primary,
+                                "More book actions", color = colors.terraAction,
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (selection?.canEdit == true && onEditBook != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit book details") },
+                                    onClick = { menuOpen = false; onEditBook() }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Add to collection") },
                                 onClick = { menuOpen = false; onAddToCollection() }
@@ -433,7 +522,10 @@ fun BookDetailContent(
                 }
                 if (privateCopy && (loan != null || selection?.canLend == true)) {
                     HorizontalDivider(color = colors.divider)
-                    Box(Modifier.padding(horizontal = spacing.gutter, vertical = spacing.sm)) {
+                    Box(
+                        Modifier.background(colors.backgroundElevated)
+                            .padding(horizontal = spacing.gutter, vertical = spacing.sm)
+                    ) {
                         PrimaryButton(
                             text = if (loan != null) "View This Loan"
                             else if (state.hasOpenActivity) "Continue Lending" else "Lend This Book",
@@ -449,6 +541,62 @@ fun BookDetailContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DetailHero(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    val colors = MaktabaTheme.colors
+    Box(
+        Modifier.fillMaxWidth().drawBehind {
+            val center = Offset(size.width * .5f, size.height * .3f)
+            val radius = size.width * .73f
+            scale(scaleX = 1f, scaleY = size.height / size.width, pivot = center) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(colors.sage, colors.sage.copy(alpha = 0f)),
+                        center = center, radius = radius
+                    ),
+                    radius = radius, center = center
+                )
+            }
+        }
+    ) {
+        Image(
+            painter = painterResource(R.drawable.illus_book_detail),
+            contentDescription = null,
+            contentScale = ContentScale.FillHeight,
+            alignment = Alignment.TopStart,
+            modifier = Modifier.offset(x = (-20).dp).size(width = 56.dp, height = 245.dp)
+                .clipToBounds()
+                .graphicsLayer {
+                    alpha = if (colors.isDark) .33f else .5f
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+                    // Match the reference's elliptical mask without shrinking the full illustration.
+                    val radius = size.height * .8f
+                    val xScale = size.width / radius
+                    scale(scaleX = xScale, scaleY = 1f, pivot = Offset.Zero) {
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                0f to colors.sage,
+                                .55f to colors.sage,
+                                1f to colors.sage.copy(alpha = 0f),
+                                center = Offset(0f, size.height * .2f), radius = radius
+                            ),
+                            size = Size(size.width / xScale, size.height),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+                }
+        )
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content
+        )
     }
 }
 

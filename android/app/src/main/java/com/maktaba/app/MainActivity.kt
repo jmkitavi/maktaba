@@ -125,11 +125,13 @@ internal fun validatedDebugRoute(route: String): String? {
         Routes.About.route,
         Routes.LibrarySharing.route,
         Routes.CollectionCreate.route,
+        Routes.Logout.route,
     )
     if (route in staticRoutes) return route
     val idPattern = "[A-Za-z0-9_-]{6,128}"
     return route.takeIf {
         it.matches(Regex("book_detail/$idPattern")) ||
+            it.matches(Regex("edit_book/$idPattern")) ||
             it.matches(Regex("share_lending_code/$idPattern")) ||
             it.matches(Regex("lend_book_config/$idPattern")) ||
             it.matches(Regex("active_loan/$idPattern")) ||
@@ -211,7 +213,7 @@ private fun SignedOutNavHost() {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Routes.Onboarding.route) {
         composable(Routes.Onboarding.route) { OnboardingScreen(navController) }
-        composable(Routes.Auth.route) { AuthScreen() }
+        composable(Routes.Auth.route) { AuthScreen(onBack = { navController.popBackStack() }) }
     }
 }
 
@@ -247,6 +249,10 @@ fun MaktabaNavHost(
         composable(Routes.Collections.route) { CollectionsScreen(navController) }
         composable(Routes.Wishlist.route) { WishlistScreen(navController) }
         composable(Routes.Profile.route) { ProfileScreen(navController) }
+        composable(Routes.Logout.route) { LogoutScreen(navController) }
+        composable(Routes.EditOwnedBook.route, arguments = listOf(bookIdArg)) { entry ->
+            EditOwnedBookScreen(navController, requireNotNull(entry.arguments?.getString("bookId")))
+        }
         composable(Routes.AddBook.route) { AddBookScreen(navController) }
         composable(Routes.Notifications.route) { NotificationsScreen(navController) }
         composable(Routes.ScanEnterCode.route) { ScanEnterCodeScreen(navController) }

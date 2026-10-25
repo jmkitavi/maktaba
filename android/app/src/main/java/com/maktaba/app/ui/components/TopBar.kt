@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -37,19 +38,20 @@ fun ScreenTopBar(
     onBack: (() -> Unit)? = null,
     branded: Boolean = false,
     illustrationRes: Int? = null,
+    compact: Boolean = false,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val colors = MaktabaTheme.colors
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(colors.background)
             .statusBarsPadding()
+            .heightIn(min = if (branded) 0.dp else 67.dp)
             .padding(
                 start = if (onBack == null) 20.dp else 14.dp,
                 end = 16.dp,
-                top = if (branded && illustrationRes == null) 22.dp else if (branded) 14.dp else 8.dp,
-                bottom = if (branded && illustrationRes == null) 17.dp else if (branded) 14.dp else if (onBack != null) 5.dp else 8.dp
+                top = if (compact) 10.dp else if (branded && illustrationRes == null) 22.dp else if (branded) 14.dp else 8.dp,
+                bottom = if (compact) 10.dp else if (branded && illustrationRes == null) 17.dp else if (branded) 14.dp else if (onBack != null) 5.dp else 8.dp
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -95,7 +97,7 @@ fun ScreenTopBar(
                         modifier = Modifier.weight(1f).semantics { heading() },
                         color = colors.ink,
                         style = when {
-                            !branded -> MaterialTheme.typography.headlineMedium
+                            !branded || compact -> MaterialTheme.typography.headlineMedium
                             illustrationRes != null -> MaterialTheme.typography.headlineLarge
                             else -> MaterialTheme.typography.displayMedium
                         }.copy(letterSpacing = (-0.8).sp),

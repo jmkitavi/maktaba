@@ -151,7 +151,7 @@ fun ConfirmBorrowContent(
     onOpenLoan: () -> Unit
 ) {
     val colors = MaktabaTheme.colors
-    HandoffPage("Confirm Borrow", onBack, actions = {
+    HandoffPage("Confirm Borrow", onBack, illustrated = true, actions = {
         if (state.accepted) {
             PrimaryButton("Back to Loans", onClick = onLoans)
         } else {

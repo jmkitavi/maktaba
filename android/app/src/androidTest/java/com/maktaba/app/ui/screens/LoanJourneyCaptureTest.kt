@@ -107,10 +107,10 @@ class LoanJourneyCaptureTest {
             assertEquals("Letters from Distant Shores", fixtures.book("distant-shores").title)
             assertEquals("A Field Guide to Small Things", fixtures.book("small-things").title)
             assertEquals("Stillwater & Other Stories", fixtures.book("stillwater").title)
-            assertEquals(Instant.parse("2026-10-23T12:00:00Z"), JourneyFixtures.clock.instant())
+            assertEquals(Instant.parse("2026-10-25T12:00:00Z"), JourneyFixtures.clock.instant())
             assertEquals(ZoneOffset.UTC.rules, JourneyFixtures.clock.zone.rules)
-            verifyOriginalLoan(fixtures.book("distant-shores"), "Sam", true, "2026-09-28", "2026-10-19")
-            verifyOriginalLoan(fixtures.book("small-things"), "Alex", false, "2026-10-04", "2026-10-25")
+            verifyOriginalLoan(fixtures.book("distant-shores"), "Sam", true, "2026-09-30", "2026-10-21")
+            verifyOriginalLoan(fixtures.book("small-things"), "Alex", false, "2026-10-06", "2026-10-27")
             val scenarios = scenarios()
             var scenario by mutableStateOf(scenarios.first())
             compose.setContent {
@@ -304,6 +304,10 @@ class LoanJourneyCaptureTest {
         Scenario("return-confirm-error", Page.RETURN, fixtureId = "small-things", stage = ReturnStage.CONFIRM,
             error = "We could not update this return. Try again.", expected = "Confirm the Return"),
         Scenario("return-confirm-submitting", Page.RETURN, fixtureId = "small-things", stage = ReturnStage.CONFIRM,
-            submitting = true, expected = "Confirm the Return")
+            submitting = true, expected = "Confirm the Return"),
+        Scenario("inbox-empty", Page.INBOX, empty = true, expected = "You Are All Caught Up"),
+        Scenario("inbox-error", Page.INBOX, loaded = false, error = "Connection unavailable",
+            expected = "Could Not Load Notifications"),
+        Scenario("inbox-loading", Page.INBOX, loaded = false, empty = true, expected = "")
     )
 }

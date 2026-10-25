@@ -39,19 +39,41 @@ service cloud.firestore {
         data.addedAt is timestamp;
     }
 
+    function validPrivateBookDetails(data) {
+      return data is map &&
+        data.keys().hasOnly([
+          'title', 'author', 'binding', 'isbn13', 'isbn10', 'publisher',
+          'published', 'genre', 'pages', 'description'
+        ]) &&
+        isShortString(data.title, 1, 500) &&
+        isShortString(data.author, 1, 500) &&
+        isShortString(data.binding, 0, 100) &&
+        isShortString(data.isbn13, 0, 13) &&
+        (data.isbn13 == '' || data.isbn13.matches('[0-9]{13}')) &&
+        isShortString(data.isbn10, 0, 10) &&
+        (data.isbn10 == '' || data.isbn10.matches('[0-9]{9}[0-9X]')) &&
+        isShortString(data.publisher, 0, 300) &&
+        isShortString(data.published, 0, 40) &&
+        isShortString(data.genre, 0, 200) &&
+        data.pages is int && data.pages >= 0 && data.pages <= 100000 &&
+        isShortString(data.description, 0, 20000);
+    }
+
     function validUserBook(data) {
       return data.keys().hasOnly([
           'ownerId',
           'catalogBookId',
           'status',
           'createdAt',
-          'updatedAt'
+          'updatedAt',
+          'privateDetails'
         ]) &&
         isShortString(data.ownerId, 6, 128) &&
         isShortString(data.catalogBookId, 2, 128) &&
         isUserBookStatus(data.status) &&
         data.createdAt is timestamp &&
-        data.updatedAt is timestamp;
+        data.updatedAt is timestamp &&
+        (!('privateDetails' in data) || validPrivateBookDetails(data.privateDetails));
     }
 
     function validClientUserProfile(data) {

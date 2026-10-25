@@ -133,7 +133,7 @@ fun WantToReadContent(
                                 modifier = Modifier.size(44.dp)
                             ) {
                                 Icon(Icons.Filled.Favorite, "Unsave ${book.title}",
-                                    Modifier.size(18.dp), tint = MaktabaTheme.colors.primary)
+                                    Modifier.size(18.dp), tint = MaktabaTheme.colors.terraAction)
                             }
                         }
                     }

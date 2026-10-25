@@ -47,7 +47,10 @@ data class Book(
     val binding: String = "",
     val format: BookFormat = BookFormat.UNKNOWN,
     val physicalEditionIsbn13: String = "",
-    val jacketTone: BookJacketTone = BookJacketTone.LINEN
+    val jacketTone: BookJacketTone = BookJacketTone.LINEN,
+    val isbn13: String = "",
+    val isbn10: String = "",
+    val publisher: String = ""
 )
 
 data class NotificationItem(
@@ -340,6 +343,20 @@ object LibraryRepository {
                 "physicalEditionIsbn13" to metadata.physicalEditionIsbn13.ifBlank { null }
             )
         )
+    }
+
+    suspend fun updateOwnedBook(bookId: String, draft: OwnedBookDraft) {
+        val uid = requireNotNull(currentUid) { "Sign in before editing a book." }
+        val generation = sessionGeneration
+        val fields = draft.toFields()
+        val ref = firestore.collection("userBooks").document(bookId)
+        firestore.runTransaction { transaction ->
+            check(generation == sessionGeneration && currentUid == uid) { "Your session changed. Sign in again." }
+            val copy = transaction.get(ref)
+            require(copy.exists() && copy.getString("ownerId") == uid) { "Only your own books can be edited." }
+            transaction.update(ref, mapOf("privateDetails" to fields, "updatedAt" to FieldValue.serverTimestamp()))
+        }.await()
+        check(generation == sessionGeneration && currentUid == uid) { "Your session changed. Sign in again." }
     }
 
     suspend fun startLending(bookId: String, borrowerName: String, dueAtMillis: Long): PendingLoanInvite {
@@ -728,13 +745,14 @@ object LibraryRepository {
             val catalogId = copy["catalogBookId"] as? String ?: return@mapNotNull null
             val details = catalog[catalogId].orEmpty()
             val loan = active.values.firstOrNull { it["copyId"] == copyId && it["lenderUid"] == uid }
-            bookFromData(
+            val book = bookFromData(
                 copyId = copyId,
                 catalogId = catalogId,
                 details = details,
                 status = if (loan == null) BookStatus.OWNED else BookStatus.LENT_OUT,
                 ownerId = uid
             )
+            applyOwnedBookDetails(book, copy["privateDetails"] as? Map<*, *> ?: emptyMap<String, Any>())
         }.toMutableList()
         active.values.filter { it["borrowerUid"] == uid }.forEach { loan ->
             val copyId = loan["copyId"] as? String ?: return@forEach
@@ -819,6 +837,9 @@ object LibraryRepository {
             pages = (details["pageCount"] as? Number)?.toInt() ?: 0,
             description = details["description"] as? String ?: "",
             binding = details["binding"] as? String ?: "",
+            isbn13 = details["isbn13"] as? String ?: "",
+            isbn10 = details["isbn10"] as? String ?: "",
+            publisher = details["publisher"] as? String ?: "",
             format = BookFormat.from(details["format"] as? String, details["binding"] as? String),
             physicalEditionIsbn13 = details["physicalEditionIsbn13"] as? String ?: ""
         )

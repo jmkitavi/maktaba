@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
@@ -158,7 +160,7 @@ fun HomeLibraryContent(
                         if (unreadCount > 0) {
                             Badge(
                                 modifier = Modifier.height(13.dp).widthIn(min = 13.dp),
-                                containerColor = colors.primary, contentColor = colors.onPrimary
+                                containerColor = colors.terraAction, contentColor = colors.onPrimary
                             ) {
                                 Text(
                                     unreadCount.toString(),
@@ -169,7 +171,9 @@ fun HomeLibraryContent(
                     }) {
                         IconButton(
                             onClick = onNotifications,
-                            modifier = Modifier.size(44.dp).border(1.dp, colors.divider, CircleShape)
+                            modifier = Modifier.size(44.dp)
+                                .background(colors.surface, CircleShape)
+                                .border(1.dp, colors.divider, CircleShape)
                         ) {
                             Icon(
                                 Icons.Filled.NotificationsNone,
@@ -187,9 +191,10 @@ fun HomeLibraryContent(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddSheet = true },
-                containerColor = colors.primary,
+                modifier = Modifier.size(52.dp),
+                containerColor = colors.terraAction,
                 contentColor = colors.onPrimary,
-                shape = CircleShape
+                shape = MaktabaShapes.large
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add or borrow a book")
             }
@@ -199,7 +204,6 @@ fun HomeLibraryContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(colors.background)
         ) {
             BasicTextField(
                 value = searchQuery,
@@ -208,9 +212,10 @@ fun HomeLibraryContent(
                     .fillMaxWidth()
                     .padding(horizontal = gutter)
                     .heightIn(min = 44.dp)
+                    .shadow(1.dp, MaktabaShapes.small)
                     .clip(MaktabaShapes.small)
-                    .border(1.dp, colors.divider, MaktabaShapes.small)
-                    .background(colors.backgroundElevated)
+                    .border(1.dp, colors.sageLine, MaktabaShapes.small)
+                    .background(colors.surface)
                     .semantics { contentDescription = "Search books, authors, genres" },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.ink),
@@ -370,13 +375,21 @@ fun HomeLibraryContent(
                     verticalArrangement = Arrangement.spacedBy(if (narrowLayout) 24.dp else 22.dp)
                 ) {
                     items(filteredBooks, key = { it.id }) { book ->
-                        BookCoverCard(
-                            book = book,
-                            loan = loans.firstOrNull { it.bookId == book.id },
-                            clock = clock,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = { onBook(book) }
-                        )
+                        Box(Modifier.fillMaxWidth()) {
+                            // Shadow only the jacket, not the accessible card and its labels.
+                            Box(
+                                Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                                    .shadow(4.dp, MaktabaShapes.cover)
+                                    .background(colors.surfaceAlt, MaktabaShapes.cover)
+                            )
+                            BookCoverCard(
+                                book = book,
+                                loan = loans.firstOrNull { it.bookId == book.id },
+                                clock = clock,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { onBook(book) }
+                            )
+                        }
                     }
                 }
             }

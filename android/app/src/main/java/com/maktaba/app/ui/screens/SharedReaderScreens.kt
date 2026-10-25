@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.TextStyle
 import androidx.navigation.NavHostController
 import com.maktaba.app.data.*
+import com.maktaba.app.R
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.SansBody
 import com.maktaba.app.ui.theme.SerifDisplay
@@ -64,7 +65,9 @@ fun SharedLibraryContent(
             Spacer(Modifier.height(13.dp))
             Text("${page.library.bookCount} books · Shared with signed-in readers", color = colors.inkMuted,
                 style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 17.sp))
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
+            HorizontalDivider(color = colors.divider)
+            Spacer(Modifier.height(18.dp))
         }
         if (page.books.isEmpty()) {
             CollectionHeading("A shelf with room to grow")
@@ -111,7 +114,7 @@ fun SharedLibraryOverflowContent(onReport: () -> Unit) {
 @Composable
 fun ReaderProfileScreen(navController: NavHostController, readerUid: String) {
     val feed = rememberCollectionFeed("reader:$readerUid") { CollectionsRepository.readerProfile(readerUid) }
-    CollectionPage(navController, "Reader Profile") {
+    CollectionPage(navController, "Reader Profile", headerArt = R.drawable.illus_loan_shelf) {
         CollectionLoad(feed.state, feed::refresh) { page ->
             ReaderProfileContent(page,
                 onLibrary = { navController.collectionRoute("shared_library", readerUid) },
@@ -163,7 +166,7 @@ fun SharedCollectionScreen(
     val feed = rememberCollectionFeed("collection:$ownerUid:$collectionId") {
         CollectionsRepository.sharedCollection(ownerUid, collectionId)
     }
-    CollectionPage(navController, "Collection") {
+    CollectionPage(navController, "Collection", headerArt = R.drawable.illus_loan_shelf) {
         CollectionLoad(feed.state, feed::refresh) { page ->
             SharedCollectionContent(page,
                 onReader = { navController.collectionRoute("reader_profile", ownerUid) },

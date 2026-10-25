@@ -2,6 +2,7 @@ package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.maktaba.app.data.*
+import com.maktaba.app.R
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.SansBody
@@ -51,7 +53,7 @@ fun CollectionCreateScreen(navController: NavHostController) {
             finally { busy = false }
         }
     }
-    CollectionPage(navController, "Create collection") {
+    CollectionPage(navController, "Create collection", headerArt = R.drawable.illus_cup_books) {
         CollectionCreateContent(name, busy, submittedName != null, error, { name = it }, ::create)
     }
 }
@@ -124,7 +126,7 @@ private fun CollectionCatalogueLoad(content: @Composable () -> Unit) {
 
 @Composable
 fun CollectionDetailScreen(navController: NavHostController, collectionId: String) {
-    CollectionPage(navController, "Collection") {
+    CollectionPage(navController, "Collection", headerArt = R.drawable.illus_loan_shelf) {
         OwnCollection(collectionId) { collection ->
             CollectionCatalogueLoad {
                 CollectionDetailContent(collection, CollectionsRepository.sharingSettings, candidates(),
@@ -283,7 +285,8 @@ fun CollectionBookSelection(
 @Composable
 fun CollectionEditScreen(navController: NavHostController, collectionId: String) {
     var deleting by rememberSaveable { mutableStateOf(false) }
-    CollectionPage(navController, if (deleting) "Delete collection" else "Edit collection") {
+    CollectionPage(navController, if (deleting) "Delete collection" else "Edit collection",
+        headerArt = if (deleting) null else R.drawable.illus_cup_books) {
         OwnCollection(collectionId) { collection ->
             CollectionEditContent(collection,
                 onSave = {
@@ -375,7 +378,8 @@ fun CollectionDeleteContent(
 fun CollectionPrivacyScreen(navController: NavHostController, collectionId: String) {
     val scope = rememberCoroutineScope()
     var preview by rememberSaveable { mutableStateOf(false) }
-    CollectionPage(navController, if (preview) "Owner reader preview" else "Privacy & sharing") {
+    CollectionPage(navController, if (preview) "Owner reader preview" else "Privacy & sharing",
+        headerArt = R.drawable.illus_loan_shelf) {
         OwnCollection(collectionId) { collection ->
             CollectionLoad(CollectionsRepository.sharingSettings,
                 { scope.launch { runCatching { CollectionsRepository.refreshSharingSettings() } } }) { settings ->
@@ -430,6 +434,11 @@ fun CollectionPrivacyContent(
                 CollectionNote("${visibleIds.size} visible titles")
             }
             val previewBooks = visibleIds.mapNotNull { id -> books.find { it.catalogId == id } }
+            if (visibleIds.isEmpty()) {
+                CollectionHeading(if (collection.catalogIds.isEmpty()) "No titles selected yet" else "All selected titles are hidden")
+                CollectionNote(if (collection.catalogIds.isEmpty()) "Choose titles for your collection to fill this reader preview."
+                    else "Your private selection is unchanged. Unhide a title to include it in shared views.")
+            }
             if (previewBooks.size < visibleIds.size)
                 CollectionNote("${visibleIds.size - previewBooks.size} catalogue details are unavailable. Their membership is unchanged.")
             Box(Modifier.padding(top = 6.dp)) {
@@ -452,6 +461,8 @@ fun CollectionPrivacyContent(
                 Spacer(Modifier.height(9.dp))
                 listOf(false to "Private · only you", true to "Shared · signed-in readers").forEach { (value, label) ->
                     Row(Modifier.fillMaxWidth().heightIn(min = 47.dp)
+                        .background(if (shared == value) MaktabaTheme.colors.sage else androidx.compose.ui.graphics.Color.Transparent,
+                            RoundedCornerShape(8.dp))
                         .clickable(enabled = !busy) { shared = value; saved = false },
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         RadioButton(shared == value, onClick = { shared = value; saved = false },
@@ -463,10 +474,10 @@ fun CollectionPrivacyContent(
             }
             CollectionNote("${collection.catalogIds.size} selected / ${visibleIds.size} visible")
             Column {
-                Surface(shape = RoundedCornerShape(9.dp), color = MaktabaTheme.colors.successContainer,
+                Surface(shape = RoundedCornerShape(9.dp), color = MaktabaTheme.colors.sage,
                     border = BorderStroke(1.dp, MaktabaTheme.colors.divider)) {
                     Text("Global title hiding always applies to all shared views. Collection sharing cannot override it. Hidden titles remain selected privately but are excluded from reader grids, cover previews and visible counts.",
-                        Modifier.padding(13.dp), color = MaktabaTheme.colors.success,
+                        Modifier.padding(13.dp), color = MaktabaTheme.colors.primary,
                         style = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 20.4.sp,
                             lineHeightStyle = CollectionLineHeight))
                 }
@@ -512,7 +523,7 @@ fun AddToCollectionScreen(navController: NavHostController, catalogId: String) {
             finally { busy = null }
         }
     }
-    CollectionPage(navController, "Add to collection") {
+    CollectionPage(navController, "Add to collection", headerArt = R.drawable.illus_loan_shelf) {
         val book = candidates().find { it.catalogId == catalogId }
         AddToCollectionContent(book?.title, catalogId, CollectionsRepository.collections.toList(),
             CollectionsRepository.collectionsState, busy,

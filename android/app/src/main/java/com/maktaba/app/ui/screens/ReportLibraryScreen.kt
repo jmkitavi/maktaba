@@ -182,7 +182,7 @@ internal fun ReportLibraryContent(
         }, onBack = onBack)
     }, selectedTab = BottomNavTab.COLLECTIONS, onTabSelected = onTabSelected) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 7.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when (state.step) {
@@ -197,6 +197,7 @@ internal fun ReportLibraryContent(
                         LibraryReportReason.values().forEach { reason ->
                             Row(
                                 Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .background(if (state.reason == reason) colors.sage else androidx.compose.ui.graphics.Color.Transparent, MaktabaShapes.small)
                                     .selectable(
                                         selected = state.reason == reason, role = Role.RadioButton,
                                         onClick = { onReason(reason) }
@@ -237,7 +238,7 @@ internal fun ReportLibraryContent(
                 ReportStep.REVIEW -> {
                     Text("Check before submitting.", style = MaterialTheme.typography.headlineMedium, color = colors.ink, modifier = Modifier.padding(top = 13.dp))
                     Column(
-                        Modifier.fillMaxWidth().background(colors.surface, MaktabaShapes.medium)
+                        Modifier.fillMaxWidth().background(colors.sage, MaktabaShapes.medium)
                             .border(1.dp, colors.divider, MaktabaShapes.medium).padding(16.dp)
                     ) {
                         ReportReviewField("Library", state.libraryName +
@@ -269,7 +270,7 @@ internal fun ReportLibraryContent(
                     Text(
                         "No moderation outcome or review timeline is promised. This library remains visible unless its owner changes sharing or a review determines otherwise.",
                         style = bodyStyle, color = colors.accent,
-                        modifier = Modifier.fillMaxWidth().background(colors.successContainer, MaktabaShapes.small)
+                        modifier = Modifier.fillMaxWidth().background(colors.sage, MaktabaShapes.small)
                             .border(1.dp, colors.divider, MaktabaShapes.small).padding(12.dp)
                     )
                     PrimaryButton("Return to library", onClick = onBack)

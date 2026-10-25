@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
@@ -64,19 +65,80 @@ class CoreLibraryContentTest {
                     ),
                     onBack = {}, onRetry = {}, onSave = { saves++ }, onLend = {},
                     onLoan = {}, onRemove = {}, onAddToCollection = { adds++ },
-                    onToggleHidden = {}, onManageSharing = {}
+                    onToggleHidden = {}, onManageSharing = {}, onEditBook = {}
                 )
             }
         }
         composeRule.onNodeWithText("Catalogue Title").assertIsDisplayed()
         composeRule.onNodeWithText("Book detail").assertDoesNotExist()
         composeRule.onNodeWithText("Lend This Book").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Save to Want to Read").performClick()
         composeRule.onNodeWithText("More book actions").performScrollTo().performClick()
+        composeRule.onNodeWithText("Edit book details").assertDoesNotExist()
         composeRule.onNodeWithText("Remove from library").assertDoesNotExist()
         composeRule.onNodeWithText("Hide from shared views").assertDoesNotExist()
         composeRule.onNodeWithText("Add to collection").performClick()
         composeRule.runOnIdle { assertEquals(1, adds); assertEquals(1, saves) }
+    }
+
+    @Test
+    fun moreActionsCanEditOwnedAndLentPrivateCopiesButNotBorrowedCopies() {
+        var edits = 0
+        val status = mutableStateOf(BookStatus.OWNED)
+        composeRule.setContent {
+            BookHavenTheme {
+                BookDetailContent(
+                    state = LibraryBookDetailState(
+                        selection = LibraryDetailSelection(
+                            catalogueBook.copy(status = status.value), privateCopy = true
+                        ),
+                        loaded = true, savedLoaded = true
+                    ),
+                    onBack = {}, onRetry = {}, onSave = {}, onLend = {},
+                    onLoan = {}, onRemove = {}, onAddToCollection = {},
+                    onToggleHidden = {}, onManageSharing = {},
+                    onEditBook = { edits++ }
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
+        composeRule.onNodeWithText("Edit book details").assertDoesNotExist()
+        composeRule.onNodeWithText("More book actions").performScrollTo().performClick()
+        composeRule.onNodeWithText("Edit book details").performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, edits)
+            status.value = BookStatus.LENT_OUT
+        }
+        composeRule.onNodeWithText("More book actions").performScrollTo().performClick()
+        composeRule.onNodeWithText("Edit book details").performClick()
+        composeRule.runOnIdle {
+            assertEquals(2, edits)
+            status.value = BookStatus.BORROWED
+        }
+        composeRule.onNodeWithText("More book actions").performScrollTo().performClick()
+        composeRule.onNodeWithText("Edit book details").assertDoesNotExist()
+    }
+
+    @Test
+    fun ownedDetailsDoNotOfferEditingWithoutAnIntegrationCallback() {
+        composeRule.setContent {
+            BookHavenTheme {
+                BookDetailContent(
+                    state = LibraryBookDetailState(
+                        selection = LibraryDetailSelection(catalogueBook, privateCopy = true),
+                        loaded = true, savedLoaded = true
+                    ),
+                    onBack = {}, onRetry = {}, onSave = {}, onLend = {},
+                    onLoan = {}, onRemove = {}, onAddToCollection = {},
+                    onToggleHidden = {}, onManageSharing = {}
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
+        composeRule.onNodeWithText("Lend This Book").assertIsDisplayed()
+        composeRule.onNodeWithText("More book actions").performScrollTo().performClick()
+        composeRule.onNodeWithText("Edit book details").assertDoesNotExist()
     }
 
     @Test
@@ -99,8 +161,9 @@ class CoreLibraryContentTest {
     }
 
     @Test
-    fun profileSharingFailureDoesNotClaimPrivateAndSettingsNavigates() {
+    fun profileSharingFailureDoesNotClaimPrivateAndAccountActionsNavigate() {
         var settingsOpens = 0
+        var logoutOpens = 0
         composeRule.setContent {
             BookHavenTheme {
                 ProfileContent(
@@ -109,14 +172,20 @@ class CoreLibraryContentTest {
                         sharingError = "Connection unavailable"
                     ),
                     onSharing = {}, onSettings = { settingsOpens++ }, onNotifications = {},
-                    onLogout = {}, onTab = {}, onRetryLibrary = {}, onRetrySharing = {}
+                    onLogout = { logoutOpens++ }, onTab = {},
+                    onRetryLibrary = {}, onRetrySharing = {}
                 )
             }
         }
         composeRule.onNodeWithText("Your library is private").assertDoesNotExist()
         composeRule.onNodeWithText("Sharing settings unavailable").assertIsDisplayed()
         composeRule.onNodeWithText("Settings").performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals(1, settingsOpens) }
+        composeRule.onNodeWithText("Log Out").performScrollTo().performClick()
+        composeRule.onNodeWithText("Log out?").assertDoesNotExist()
+        composeRule.runOnIdle {
+            assertEquals(1, settingsOpens)
+            assertEquals(1, logoutOpens)
+        }
     }
 
     @Test

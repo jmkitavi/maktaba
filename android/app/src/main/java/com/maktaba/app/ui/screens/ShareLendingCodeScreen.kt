@@ -258,26 +258,29 @@ fun ShareLendingCodeContent(
                 fontSize = 10.sp, lineHeight = 18.sp), color = colors.inkMuted)
         }
         Spacer(Modifier.height(18.dp))
-        Surface(shape = MaktabaShapes.medium, color = colors.surface,
-            border = BorderStroke(1.dp, colors.divider)) {
-            Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("YOUR LENDING CODE", style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 9.sp, lineHeight = 14.sp, letterSpacing = 1.2.sp), color = colors.primary)
-                Spacer(Modifier.height(8.dp))
-                Text(state.invite.code.value, style = MaterialTheme.typography.displayMedium.copy(letterSpacing = 3.sp),
-                    color = colors.ink)
-                TextButton(onClick = onCopy, enabled = pending) {
-                    Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(13.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text("Copy Code", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp))
+        Box(Modifier.fillMaxWidth()) {
+            Surface(shape = MaktabaShapes.medium, color = colors.surface,
+                border = BorderStroke(1.dp, colors.divider)) {
+                Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("YOUR LENDING CODE", style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 14.sp, letterSpacing = 1.2.sp), color = colors.primary)
+                    Spacer(Modifier.height(8.dp))
+                    Text(state.invite.code.value, style = MaterialTheme.typography.displayMedium.copy(letterSpacing = 3.sp),
+                        color = colors.ink)
+                    TextButton(onClick = onCopy, enabled = pending) {
+                        Icon(Icons.Outlined.ContentCopy, null, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Copy Code", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp))
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    QrCodeImage(lendingLinkFor(state.invite.code.value),
+                        modifier = Modifier.size(144.dp).clip(RoundedCornerShape(6.dp)).background(Color.White))
+                    Spacer(Modifier.height(10.dp))
+                    Text("Scan this code in Book Haven.", style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 15.sp), color = colors.inkMuted)
                 }
-                Spacer(Modifier.height(6.dp))
-                QrCodeImage(lendingLinkFor(state.invite.code.value),
-                    modifier = Modifier.size(144.dp).clip(RoundedCornerShape(6.dp)).background(Color.White))
-                Spacer(Modifier.height(10.dp))
-                Text("Scan this code in Book Haven.", style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 9.sp, lineHeight = 15.sp), color = colors.inkMuted)
             }
+            InviteShelfArt()
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,

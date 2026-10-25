@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -11,12 +12,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.maktaba.app.data.Book
+import com.maktaba.app.R
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.*
@@ -120,7 +125,7 @@ fun LendBookConfigContent(
     onGenerate: () -> Unit
 ) {
     val colors = MaktabaTheme.colors
-    HandoffPage("Lend a Book", onBack, actions = {
+    HandoffPage("Lend a Book", onBack, illustrated = true, actions = {
         PrimaryButton("Generate Lending Code", enabled = !state.submitting,
             loading = state.submitting, leadingIcon = {
                 Icon(Icons.Filled.QrCodeScanner, null, modifier = Modifier.size(16.dp))
@@ -173,5 +178,11 @@ fun LendBookConfigContent(
             Spacer(Modifier.height(12.dp))
             HandoffNotice(it, error = true)
         }
+        Spacer(Modifier.height(14.dp))
+        Image(
+            painterResource(R.drawable.illus_reading_lamp), null, contentScale = ContentScale.Fit,
+            modifier = Modifier.align(Alignment.End).width(138.dp).aspectRatio(350f / 230f)
+                .graphicsLayer { alpha = if (colors.isDark) 0.75f else 0.85f }
+        )
     }
 }

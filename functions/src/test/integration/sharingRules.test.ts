@@ -56,6 +56,36 @@ async function seedBook(id = "title", uid = owner, copy = `${uid}-${id}`) {
 async function share(uid = owner) {
   return mutateSettings(db, uid, () => ({ libraryShared: true, libraryName: `${uid}'s Shelf` }));
 }
+test("owned-copy edits persist privately, reject malformed/borrowed edits and never change public catalogue metadata", async () => {
+  await seedOwner();
+  await seedBook();
+  await share();
+  const self = environment.authenticatedContext(owner).firestore();
+  const reader = environment.authenticatedContext(other).firestore();
+  const path = `userBooks/${owner}-title`;
+  const privateDetails = {
+    title: "My private title", author: "My author", binding: "Paperback",
+    isbn13: "9780306406157", isbn10: "", publisher: "My publisher",
+    published: "2026", genre: "Fiction", pages: 123, description: "My notes",
+  };
+  await assertSucceeds(updateDoc(doc(self, path), { privateDetails, updatedAt: ClientTimestamp.now() }));
+  assert.deepEqual((await getDoc(doc(self, path))).get("privateDetails"), privateDetails);
+  await assertFails(getDoc(doc(reader, path)));
+  await assertFails(updateDoc(doc(reader, path), { privateDetails, updatedAt: ClientTimestamp.now() }));
+  for (const invalid of [
+    { ...privateDetails, title: "" }, { ...privateDetails, pages: -1 },
+    { ...privateDetails, pages: 100001 }, { ...privateDetails, pages: "123" },
+    { ...privateDetails, isbn13: "malformed" }, { ...privateDetails, ownerId: other },
+    { ...privateDetails, description: "x".repeat(20001) },
+  ]) {
+    await assertFails(updateDoc(doc(self, path), { privateDetails: invalid, updatedAt: ClientTimestamp.now() }));
+  }
+  await assertFails(updateDoc(doc(self, path), { ownerId: other }));
+  await assertFails(updateDoc(doc(self, path), { catalogBookId: "another-title" }));
+  await refreshPublication(db, owner);
+  assert.equal((await getDoc(doc(reader, `sharedLibraries/${owner}/books/title`))).get("title"), "title");
+  assert.equal((await db.doc("catalogBooks/title").get()).get("title"), "title");
+});
 test("default-off legacy accounts remain private; owner data and server sharing fields stay protected", async () => {
   await seedOwner();
   await seedBook();

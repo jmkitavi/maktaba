@@ -9,6 +9,7 @@ sealed class Routes(val route: String) {
     object ScreenPicker : Routes("screen_picker")
     object Onboarding : Routes("onboarding")
     object Auth : Routes("auth")
+    object Logout : Routes("logout")
     object HomeLibrary : Routes("home_library")
     object Loans : Routes("loans")
     object Wishlist : Routes("wishlist")
@@ -26,6 +27,9 @@ sealed class Routes(val route: String) {
 
     object BookDetail : Routes("book_detail/{bookId}") {
         fun createRoute(bookId: String) = "book_detail/${routeArgument(bookId)}"
+    }
+    object EditOwnedBook : Routes("edit_book/{bookId}") {
+        fun createRoute(bookId: String) = "edit_book/${routeArgument(bookId)}"
     }
     object ShareLendingCode : Routes("share_lending_code/{inviteId}") {
         fun createRoute(inviteId: String) = "share_lending_code/${routeArgument(inviteId)}"

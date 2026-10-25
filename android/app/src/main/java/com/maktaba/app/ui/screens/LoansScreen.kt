@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Schedule
@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
@@ -119,11 +121,11 @@ fun LoansContent(
         }
     ) { innerPadding ->
         Column(
-            Modifier.fillMaxSize().padding(innerPadding).background(colors.background)
+            Modifier.fillMaxSize().padding(innerPadding)
         ) {
             TabRow(
                 selectedTabIndex = if (lender) 0 else 1,
-                containerColor = colors.background,
+                containerColor = Color.Transparent,
                 contentColor = colors.primary,
                 modifier = Modifier.padding(horizontal = spacing.gutter),
                 divider = { HorizontalDivider(color = colors.divider) },
@@ -180,6 +182,7 @@ fun LoansContent(
                 }
                 LibraryFeedPhase.EMPTY, LibraryFeedPhase.NO_RESULTS -> EmptyState(
                     modifier = Modifier.weight(1f),
+                    illustrationRes = R.drawable.illus_loan_shelf,
                     title = if (lender) "Nothing lent out" else "Nothing borrowed",
                     message = if (lender) {
                         "A good book deserves another reader. Choose a physical book from your shelf."
@@ -216,10 +219,11 @@ fun LoansContent(
                             )
                         }
                     }
-                    items(visible, key = { it.id }) { loan ->
+                    itemsIndexed(visible, key = { _, loan -> loan.id }) { index, loan ->
                         LibraryLoanRow(
                             book = books.firstOrNull { it.id == loan.bookId },
                             loan = loan,
+                            containerColor = if (index % 2 == 0) colors.sage else colors.ochre,
                             clock = clock,
                             onClick = { onLoan(loan) }
                         )
@@ -243,12 +247,12 @@ fun LoansContent(
                             TextButton(onClick = if (lender) onChooseBook else onBorrow) {
                                 Text(
                                     if (lender) "Choose a Book to Lend" else "Borrow with a Code",
-                                    color = colors.primary,
+                                    color = colors.terraAction,
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Icon(
                                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null, tint = colors.primary,
+                                    contentDescription = null, tint = colors.terraAction,
                                     modifier = Modifier.size(12.dp)
                                 )
                             }
@@ -261,7 +265,13 @@ fun LoansContent(
 }
 
 @Composable
-private fun LibraryLoanRow(book: Book?, loan: ActiveLoan, clock: Clock, onClick: () -> Unit) {
+private fun LibraryLoanRow(
+    book: Book?,
+    loan: ActiveLoan,
+    containerColor: Color,
+    clock: Clock,
+    onClick: () -> Unit
+) {
     val colors = MaktabaTheme.colors
     val urgency = LoanTimeFormatter.urgency(loan.dueAt, clock)
     val status = if (loan.isLender) BookStatus.LENT_OUT else BookStatus.BORROWED
@@ -269,68 +279,75 @@ private fun LibraryLoanRow(book: Book?, loan: ActiveLoan, clock: Clock, onClick:
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
         shape = MaktabaShapes.medium,
-        color = colors.surface,
+        color = containerColor,
+        shadowElevation = 1.dp,
         border = BorderStroke(1.dp, colors.divider)
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-            if (book != null) {
-                BookCoverImage(
-                    book = book, contentScale = ContentScale.Fit, decorative = true,
-                    modifier = Modifier.width(58.dp).aspectRatio(2f / 3f).clip(MaktabaShapes.cover)
-                )
-                Spacer(Modifier.width(11.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                StatusPill(visuals = statusVisuals(colors, status), compact = true)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    book?.title ?: "Book details unavailable",
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontSize = 16.sp, lineHeight = 20.sp, lineHeightStyle = CoreLibraryLineHeight
-                    ), color = colors.ink,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis
-                )
+        Box(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 if (book != null) {
-                    Spacer(Modifier.height(5.dp))
-                    Text(
-                        book.author, style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = CoreLibraryLineHeight
-                        ),
-                        color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    BookCoverImage(
+                        book = book, contentScale = ContentScale.Fit, decorative = true,
+                        modifier = Modifier.width(58.dp).aspectRatio(2f / 3f)
+                            .shadow(3.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
                     )
+                    Spacer(Modifier.width(11.dp))
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    (if (loan.isLender) "With " else "From ") +
-                        loan.counterpartyName.ifBlank { "another reader" },
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 11.sp, lineHeight = 16.5.sp, lineHeightStyle = CoreLibraryLineHeight
-                    ), color = colors.inkSoft
-                )
-                Row(
-                    Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        if (urgency == LoanUrgency.OVERDUE) Icons.Outlined.WarningAmber else Icons.Outlined.Schedule,
-                        contentDescription = null, tint = urgencyColor(urgency),
-                        modifier = Modifier.size(12.dp)
-                    )
+                Column(Modifier.weight(1f)) {
+                    StatusPill(visuals = statusVisuals(colors, status), compact = true)
+                    Spacer(Modifier.height(6.dp))
+                    // The title can use the space above the vertically centered chevron.
                     Text(
-                        LoanTimeFormatter.shortRemaining(loan.dueAt, clock),
+                        book?.title ?: "Book details unavailable",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.sp,
+                            lineHeightStyle = CoreLibraryLineHeight
+                        ), color = colors.ink,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
+                    if (book != null) {
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            book.author, style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = CoreLibraryLineHeight
+                            ),
+                            modifier = Modifier.padding(end = 23.dp),
+                            color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        (if (loan.isLender) "With " else "From ") +
+                            loan.counterpartyName.ifBlank { "another reader" },
+                        modifier = Modifier.padding(end = 23.dp),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 11.sp, lineHeight = 16.5.sp, lineHeightStyle = CoreLibraryLineHeight
-                        ),
-                        color = urgencyColor(urgency)
+                        ), color = colors.inkSoft
                     )
+                    Row(
+                        Modifier.padding(top = 4.dp, end = 23.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            if (urgency == LoanUrgency.OVERDUE) Icons.Outlined.WarningAmber else Icons.Outlined.Schedule,
+                            contentDescription = null, tint = urgencyColor(urgency),
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Text(
+                            LoanTimeFormatter.shortRemaining(loan.dueAt, clock),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.sp, lineHeight = 16.5.sp, lineHeightStyle = CoreLibraryLineHeight
+                            ),
+                            color = urgencyColor(urgency)
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.width(11.dp))
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null, tint = colors.inkMuted,
-                modifier = Modifier.size(12.dp).align(Alignment.CenterVertically)
+                modifier = Modifier.size(12.dp).align(Alignment.CenterEnd)
             )
         }
     }

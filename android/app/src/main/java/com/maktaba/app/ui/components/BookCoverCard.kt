@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
@@ -94,7 +95,7 @@ fun BookCoverCard(
             )
             .semantics(mergeDescendants = true) { contentDescription = description }
     ) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(MaktabaShapes.cover).background(colors.surfaceAlt)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).shadow(4.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover).background(colors.surfaceAlt)) {
             BookCoverImage(
                 book = book,
                 contentScale = ContentScale.Fit,

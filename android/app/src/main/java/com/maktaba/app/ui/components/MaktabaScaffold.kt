@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.maktaba.app.ui.theme.MaktabaTheme
 
 /**
@@ -28,8 +29,8 @@ fun MaktabaScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
-        modifier = modifier.imePadding(),
-        containerColor = MaktabaTheme.colors.background,
+        modifier = modifier.soulBackground().imePadding(),
+        containerColor = Color.Transparent,
         topBar = topBar,
         bottomBar = {
             selectedTab?.let { MaktabaBottomNav(it, onTabSelected) }

@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -14,14 +15,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedButton
@@ -35,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -53,7 +57,6 @@ import com.maktaba.app.data.ActiveLoan
 import com.maktaba.app.data.Book
 import com.maktaba.app.data.BookFormat
 import com.maktaba.app.ui.components.BookCoverImage
-import com.maktaba.app.ui.components.MaktabaCard
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.PrimaryButton
@@ -83,21 +86,31 @@ internal fun LoanPage(
     title: String,
     onBack: () -> Unit,
     footer: @Composable ColumnScope.() -> Unit = {},
+    headerArt: Int? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val spacing = MaktabaTheme.spacing
-    MaktabaScaffold(topBar = { ScreenTopBar(title = title, onBack = onBack) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).background(MaktabaTheme.colors.background)) {
+    val colors = MaktabaTheme.colors
+    MaktabaScaffold(topBar = {
+        ScreenTopBar(title = title, onBack = onBack, actions = {
+            headerArt?.let {
+                Image(painterResource(it), null, contentScale = ContentScale.Fit,
+                    modifier = Modifier.offset(x = 4.dp).width(57.dp).height(38.dp)
+                        .graphicsLayer { alpha = if (colors.isDark) 0.55f else 0.7f })
+            }
+        })
+    }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
-                    .padding(start = spacing.gutter, end = spacing.gutter, top = 12.dp, bottom = 26.dp)
+                    .padding(start = spacing.gutter, end = spacing.gutter, top = 3.dp, bottom = 26.dp)
             ) {
                 content()
             }
             HorizontalDivider(color = MaktabaTheme.colors.divider)
             Column(
                 Modifier.fillMaxWidth().background(MaktabaTheme.colors.backgroundElevated)
-                    .padding(start = spacing.gutter, end = spacing.gutter, top = 12.dp, bottom = 32.dp),
+                    .padding(start = spacing.gutter, end = spacing.gutter, top = 12.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 content = footer
             )
@@ -108,11 +121,14 @@ internal fun LoanPage(
 @Composable
 internal fun LoanBookSummary(book: Book, compact: Boolean = false) {
     val colors = MaktabaTheme.colors
-    MaktabaCard(
-        modifier = Modifier.border(BorderStroke(1.dp, colors.divider), MaktabaShapes.medium),
-        contentPadding = PaddingValues(if (compact) 13.dp else 15.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaktabaShapes.medium,
+        color = colors.ochre,
+        border = BorderStroke(1.dp, colors.divider)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(if (compact) 13.dp else 15.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             BookCoverImage(
                 book = book,
                 contentScale = ContentScale.Fit,
@@ -256,7 +272,7 @@ internal fun LoanSecondaryButton(text: String, enabled: Boolean = true, onClick:
         onClick = onClick, enabled = enabled,
         modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
         shape = MaktabaShapes.button,
-        border = BorderStroke(1.dp, MaktabaTheme.colors.divider),
+        border = BorderStroke(1.dp, MaktabaTheme.colors.sageLine),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = MaktabaTheme.colors.backgroundElevated,
             contentColor = MaktabaTheme.colors.primary
@@ -271,7 +287,7 @@ internal fun LoanNote(message: String, icon: ImageVector) {
     val colors = MaktabaTheme.colors
     val shape = RoundedCornerShape(10.dp)
     Row(
-        Modifier.fillMaxWidth().clip(shape).background(colors.backgroundElevated)
+        Modifier.fillMaxWidth().clip(shape).background(colors.sage)
             .border(1.dp, colors.divider, shape).padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -286,11 +302,16 @@ internal fun LoanNote(message: String, icon: ImageVector) {
 @Composable
 internal fun LoanFeedback(message: String?, error: Boolean = false) {
     if (message != null) {
+        val colors = MaktabaTheme.colors
         Text(
             message,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (error) MaktabaTheme.colors.danger else MaktabaTheme.colors.inkSoft,
-            modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }
+            color = if (error) colors.danger else colors.inkSoft,
+            modifier = Modifier.fillMaxWidth().then(
+                if (error) Modifier.clip(MaktabaShapes.small).background(colors.terracotta)
+                    .border(1.dp, colors.divider, MaktabaShapes.small).padding(13.dp)
+                else Modifier
+            ).semantics { liveRegion = LiveRegionMode.Polite }
         )
     }
 }

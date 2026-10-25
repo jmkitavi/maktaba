@@ -14,6 +14,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -290,13 +299,17 @@ fun AddBookContent(
     }
     MaktabaScaffold(
         selectedTab = BottomNavTab.LIBRARY, onTabSelected = onTab,
-        topBar = { ScreenTopBar(title, onBack = onBack) }
+        topBar = {
+            ScreenTopBar(title, onBack = onBack, actions = {
+                if (state.step == AddBookStep.ISBN) HandoffCompanionArt(R.drawable.illus_cup_books)
+            })
+        }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp).padding(top = 7.dp, bottom = 28.dp)) {
             when (state.step) {
                 AddBookStep.ENTRY -> {
-                    AddBookIllustration()
+                    AddBookIllustration(onboarding = true)
                     HandoffHeading("A new place on your shelf.")
                     Spacer(Modifier.height(14.dp))
                     Text("Scan the barcode on the back cover, enter its ISBN, or add the details yourself.",
@@ -424,11 +437,39 @@ fun AddBookContent(
 }
 
 @Composable
-private fun AddBookIllustration(scanner: Boolean = false) {
-    Box(Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-        Image(painterResource(if (scanner) R.drawable.illus_enter_code else R.drawable.illus_home_icon),
+private fun AddBookIllustration(scanner: Boolean = false, onboarding: Boolean = false) {
+    Box(
+        Modifier.fillMaxWidth().padding(
+            top = if (onboarding) 5.dp else 20.dp,
+            bottom = if (onboarding) 12.dp else 20.dp
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(painterResource(when {
+            onboarding -> R.drawable.illus_onboarding
+            scanner -> R.drawable.illus_enter_code
+            else -> R.drawable.illus_home_icon
+        }),
             null, contentScale = ContentScale.Fit,
-            modifier = Modifier.width(150.dp).height(100.dp))
+            modifier = if (onboarding) Modifier.width(238.dp).height(190.dp)
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    val center = Offset(size.width * 0.48f, size.height * 0.5f)
+                    val radius = size.width * 0.69f
+                    scale(scaleX = 1f, scaleY = size.height * 0.66f / radius, pivot = center) {
+                        drawRect(
+                            Brush.radialGradient(
+                                0f to Color.White, 0.55f to Color.White, 0.86f to Color.Transparent,
+                                center = center, radius = radius
+                            ),
+                            topLeft = Offset(0f, -size.height),
+                            size = Size(size.width, size.height * 3f),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+                }
+            else Modifier.width(150.dp).height(100.dp))
     }
 }
 

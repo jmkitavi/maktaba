@@ -59,6 +59,11 @@ fun MaktabaBottomNav(
             NavigationBarItem(
                 selected = isSelected,
                 onClick = { onSelect(tab) },
+                modifier = Modifier.padding(horizontal = 3.dp, vertical = 8.dp)
+                    .background(
+                        if (isSelected) colors.sage else Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    ),
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = colors.navActive,
                     selectedTextColor = colors.navActive,
@@ -74,10 +79,7 @@ fun MaktabaBottomNav(
                         BottomNavTab.PROFILE -> Icons.Outlined.Person
                     }
                     Box(
-                        Modifier.background(
-                            if (isSelected) colors.surfaceAlt else Color.Transparent,
-                            RoundedCornerShape(15.dp)
-                        ).padding(horizontal = 14.dp, vertical = 3.dp)
+                        Modifier.padding(horizontal = 14.dp, vertical = 3.dp)
                     ) {
                         Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
                     }

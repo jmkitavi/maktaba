@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,9 +23,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
@@ -37,6 +48,8 @@ import com.maktaba.app.data.*
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.components.ScreenTopBar
+import com.maktaba.app.ui.components.MaktabaScaffold
+import com.maktaba.app.R
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.CancellationException
@@ -124,7 +137,8 @@ internal fun HandoffTextField(
     placeholder: String = "",
     textStyle: TextStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 20.sp),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    containerColor: Color = MaktabaTheme.colors.surface
 ) {
     val colors = MaktabaTheme.colors
     val interactions = remember { MutableInteractionSource() }
@@ -141,7 +155,7 @@ internal fun HandoffTextField(
                 focused -> colors.primary
                 else -> colors.divider
             }, MaktabaShapes.small)
-            .background(colors.surface, MaktabaShapes.small)
+            .background(containerColor, MaktabaShapes.small)
             .padding(horizontal = 13.dp, vertical = 13.dp)
             .semantics { if (isError) error("Check this field") },
         decorationBox = { input ->
@@ -158,31 +172,41 @@ internal fun HandoffPage(
     title: String,
     onBack: () -> Unit,
     actions: @Composable ColumnScope.() -> Unit,
+    illustrated: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = MaktabaTheme.colors
-    Scaffold(
-        modifier = Modifier.imePadding(),
-        containerColor = colors.background,
-        topBar = { ScreenTopBar(title = title, onBack = onBack) },
-        bottomBar = {
+    MaktabaScaffold(
+        topBar = {
+            ScreenTopBar(title = title, onBack = onBack, actions = {
+                if (illustrated) {
+                    Image(
+                        painterResource(R.drawable.illus_trailing_shelf), null,
+                        contentScale = ContentScale.Crop, alignment = Alignment.TopEnd,
+                        modifier = Modifier.offset(x = 16.dp).width(56.dp).height(48.dp)
+                            .graphicsLayer { alpha = if (colors.isDark) 0.55f else 0.7f }
+                            .soulArtFade()
+                    )
+                }
+            })
+        }
+    ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp).padding(top = 3.dp, bottom = 24.dp),
+                content = content
+            )
             Surface(color = colors.backgroundElevated) {
                 Column {
                     HorizontalDivider(color = colors.divider)
                     Column(
-                        Modifier.navigationBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                         content = actions
                     )
                 }
             }
         }
-    ) { padding ->
-        Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 24.dp),
-            content = content
-        )
     }
 }
 
@@ -205,11 +229,11 @@ internal fun HandoffBookSummary(book: Book, compact: Boolean = false) {
     val colors = MaktabaTheme.colors
     Surface(
         shape = MaktabaShapes.medium,
-        color = colors.surface,
+        color = colors.ochre,
         border = BorderStroke(1.dp, colors.divider)
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(if (compact) 12.dp else 15.dp),
+            Modifier.fillMaxWidth().padding(if (compact) 13.dp else 15.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             BookCoverImage(
@@ -221,11 +245,13 @@ internal fun HandoffBookSummary(book: Book, compact: Boolean = false) {
             Column(Modifier.weight(1f)) {
                 Text(book.title, style = MaterialTheme.typography.titleLarge.copy(
                     fontSize = if (compact) 17.sp else 20.sp,
-                    lineHeight = if (compact) 21.sp else 24.sp,
-                    letterSpacing = (-0.3).sp, fontWeight = FontWeight.Normal), color = colors.ink)
+                    lineHeight = if (compact) 21.25.sp else 24.sp,
+                    letterSpacing = (-0.3).sp, fontWeight = FontWeight.Normal,
+                    lineHeightStyle = LoanLineHeightStyle), color = colors.ink)
                 Spacer(Modifier.height(if (compact) 5.dp else 8.dp))
                 Text(book.author, style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = if (compact) 10.sp else 11.sp, lineHeight = if (compact) 16.sp else 18.sp),
+                    fontSize = if (compact) 10.sp else 11.sp, lineHeight = if (compact) 16.sp else 17.6.sp,
+                    lineHeightStyle = LoanLineHeightStyle),
                     color = colors.inkMuted)
                 Spacer(Modifier.height(if (compact) 5.dp else 10.dp))
                 Text(
@@ -234,7 +260,8 @@ internal fun HandoffBookSummary(book: Book, compact: Boolean = false) {
                         BookFormat.PHYSICAL -> "Physical edition"
                         BookFormat.UNKNOWN -> "Edition details unavailable"
                     },
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp, lineHeight = 14.sp),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 14.4.sp, lineHeightStyle = LoanLineHeightStyle),
                     color = colors.inkMuted
                 )
             }
@@ -253,16 +280,16 @@ internal fun HandoffNotice(
     Surface(
         shape = MaktabaShapes.small,
         color = when {
-            error -> colors.dangerContainer
-            positive -> colors.successContainer
-            else -> colors.backgroundElevated
+            error -> colors.terracotta
+            else -> colors.sage
         },
         border = BorderStroke(1.dp, colors.divider),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(Modifier.heightIn(min = 66.dp).padding(13.dp)) {
             if (icon != null) {
-                Icon(icon, null, tint = colors.primary, modifier = Modifier.padding(top = 3.dp).size(15.dp))
+                Icon(icon, null, tint = if (error) colors.danger else colors.primary,
+                    modifier = Modifier.padding(top = 3.dp).size(15.dp))
                 Spacer(Modifier.width(8.dp))
             }
             Text(text, style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
@@ -279,25 +306,73 @@ internal fun HandoffNotice(
 internal fun HandoffDateCard(dueAt: Instant?) {
     val colors = MaktabaTheme.colors
     Surface(
-        shape = MaktabaShapes.medium, color = colors.surface,
+        shape = MaktabaShapes.medium, color = colors.sage,
         border = BorderStroke(1.dp, colors.divider), modifier = Modifier.fillMaxWidth()
     ) {
-        Row(Modifier.heightIn(min = 70.dp).padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt),
-                contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.CalendarToday, null, modifier = Modifier.size(16.dp), tint = colors.primary)
+        Box(Modifier.fillMaxWidth()) {
+            Row(Modifier.heightIn(min = 70.dp).padding(start = 15.dp, end = 65.dp, top = 15.dp, bottom = 15.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.CalendarToday, null, modifier = Modifier.size(16.dp), tint = colors.primary)
+                }
+                Spacer(Modifier.width(11.dp))
+                Column {
+                    Text("Agreed Return Date", style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.sp, lineHeight = 14.sp), color = colors.inkMuted)
+                    Spacer(Modifier.height(6.dp))
+                    Text(handoffDateText(dueAt),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 22.sp, fontWeight = FontWeight.Medium), color = colors.ink)
+                }
             }
-            Spacer(Modifier.width(11.dp))
-            Column {
-                Text("Agreed Return Date", style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 9.sp, lineHeight = 14.sp), color = colors.inkMuted)
-                Spacer(Modifier.height(6.dp))
-                Text(handoffDateText(dueAt),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        lineHeight = 22.sp, fontWeight = FontWeight.Medium), color = colors.ink)
-            }
+            Image(painterResource(R.drawable.illus_cup_books), null, contentScale = ContentScale.Fit,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 8.dp)
+                    .width(42.dp).height(46.dp).graphicsLayer { alpha = 0.75f })
         }
     }
+}
+
+internal fun Modifier.soulArtFade(): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            drawRect(
+                Brush.verticalGradient(0f to Color.White, 0.6f to Color.White, 1f to Color.Transparent),
+                blendMode = BlendMode.DstIn
+            )
+        }
+
+@Composable
+internal fun InviteShelfArt() {
+    val opacity = if (MaktabaTheme.colors.isDark) 0.3f else 0.45f
+    Image(
+        painterResource(R.drawable.illus_book_detail), null,
+        contentScale = ContentScale.Crop, alignment = Alignment.TopStart,
+        modifier = Modifier.offset(x = (-22).dp).width(48.dp).height(240.dp)
+            .graphicsLayer { alpha = opacity; compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val center = Offset(0f, size.height * 0.2f)
+                scale(scaleX = 1f, scaleY = size.height * 0.8f / size.width, pivot = center) {
+                    drawRect(
+                        Brush.radialGradient(
+                            0f to Color.White, 0.55f to Color.White, 1f to Color.Transparent,
+                            center = center, radius = size.width
+                        ),
+                        topLeft = Offset(0f, -size.height),
+                        size = Size(size.width, size.height * 3f),
+                        blendMode = BlendMode.DstIn
+                    )
+                }
+            }
+    )
+}
+
+@Composable
+internal fun HandoffCompanionArt(resource: Int) {
+    Image(painterResource(resource), null, contentScale = ContentScale.Fit,
+        modifier = Modifier.width(42.dp).height(44.dp).graphicsLayer { alpha = 0.8f })
 }
 
 internal fun handoffDateText(dueAt: Instant?, numeric: Boolean = false): String =

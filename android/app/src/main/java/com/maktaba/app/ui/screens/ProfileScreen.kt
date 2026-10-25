@@ -31,14 +31,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -56,7 +53,6 @@ import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.data.LoadState
 import com.maktaba.app.nav.Routes
 import com.maktaba.app.ui.components.BottomNavTab
-import com.maktaba.app.ui.components.ConfirmationDialog
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.navigateToTab
@@ -96,7 +92,7 @@ fun ProfileScreen(navController: NavHostController) {
         onSharing = { navController.navigate(Routes.LibrarySharing.route) },
         onSettings = { navController.navigate(Routes.Settings.route) },
         onNotifications = { navController.navigate(Routes.Notifications.route) },
-        onLogout = FirebaseSession::signOut,
+        onLogout = { navController.navigate(Routes.Logout.route) },
         onTab = { navController.navigateToTab(it) },
         onRetryLibrary = LibraryRepository::retryLoads,
         onRetrySharing = {
@@ -118,17 +114,6 @@ fun ProfileContent(
 ) {
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
-    var confirmLogout by remember { mutableStateOf(false) }
-    if (confirmLogout) {
-        ConfirmationDialog(
-            title = "Log out?",
-            message = "You will need to sign in again to reach your library.",
-            confirmLabel = "Log out",
-            onConfirm = { confirmLogout = false; onLogout() },
-            onDismiss = { confirmLogout = false }
-        )
-    }
-
     MaktabaScaffold(
         selectedTab = BottomNavTab.PROFILE,
         onTabSelected = onTab,
@@ -140,21 +125,22 @@ fun ProfileContent(
         }
     ) { innerPadding ->
         Column(
-            Modifier.fillMaxSize().padding(innerPadding).background(colors.background)
+            Modifier.fillMaxSize().padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = spacing.gutter)
         ) {
             Spacer(Modifier.height(21.dp))
             Row(verticalAlignment = Alignment.Top) {
                 Surface(
-                    shape = CircleShape, color = colors.goldSoft,
+                    shape = CircleShape, color = colors.terracotta,
                     border = BorderStroke(1.dp, colors.divider),
                     modifier = Modifier.size(62.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             state.initials.ifBlank { "?" },
-                            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 23.sp), color = colors.primary
+                            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 23.sp),
+                            color = colors.terraAction
                         )
                     }
                 }
@@ -177,7 +163,7 @@ fun ProfileContent(
             }
             Spacer(Modifier.height(27.dp))
             Surface(
-                shape = MaktabaShapes.medium, color = colors.surface,
+                shape = MaktabaShapes.medium, color = colors.sage,
                 border = BorderStroke(1.dp, colors.divider)
             ) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 22.dp)) {
@@ -197,13 +183,13 @@ fun ProfileContent(
             }
             Spacer(Modifier.height(30.dp))
             Surface(
-                shape = MaktabaShapes.medium, color = colors.backgroundElevated,
+                shape = MaktabaShapes.medium, color = colors.ochre,
                 border = BorderStroke(1.dp, colors.divider),
                 modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onSharing)
             ) {
                 Row(Modifier.padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.size(34.dp).clip(CircleShape).background(colors.surfaceAlt),
+                        Modifier.size(34.dp).clip(CircleShape).background(colors.sage),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -245,14 +231,14 @@ fun ProfileContent(
                             Text(
                                 if (state.sharingLoaded && !state.shared) "Share My Library"
                                 else "Library Sharing",
-                                color = colors.primary, style = MaterialTheme.typography.bodySmall.copy(
+                                color = colors.terraAction, style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 10.sp, lineHeight = 12.sp,
                                     lineHeightStyle = CoreLibraryLineHeight
                                 )
                             )
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null, tint = colors.primary,
+                                contentDescription = null, tint = colors.terraAction,
                                 modifier = Modifier.size(11.dp)
                             )
                         }
@@ -273,13 +259,17 @@ fun ProfileContent(
             HorizontalDivider(color = colors.divider)
             ProfileMenuRow(
                 "Notifications", "Updates on your shared books",
-                Icons.Filled.NotificationsNone, onNotifications
+                Icons.Filled.NotificationsNone, colors.ochre, colors.warning, onNotifications
             )
-            ProfileMenuRow("Settings", "App preferences", Icons.Filled.Settings, onSettings)
+            ProfileMenuRow(
+                "Settings", "App preferences", Icons.Filled.Settings,
+                colors.sage, colors.primary, onSettings
+            )
             ProfileMenuRow(
                 "Log Out", "Sign out of Book Haven",
-                Icons.AutoMirrored.Outlined.Logout
-            ) { confirmLogout = true }
+                Icons.AutoMirrored.Outlined.Logout, colors.terracotta, colors.terraAction,
+                onLogout
+            )
             Spacer(Modifier.height(spacing.md))
         }
     }
@@ -293,7 +283,7 @@ private fun ProfileStat(label: String, value: Int?, modifier: Modifier = Modifie
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            value?.toString() ?: "—", color = colors.ink,
+            value?.toString() ?: "—", color = colors.primary,
             style = MaterialTheme.typography.headlineMedium.copy(fontSize = 28.sp, lineHeight = 28.sp)
         )
         Spacer(Modifier.height(9.dp))
@@ -306,7 +296,14 @@ private fun ProfileStat(label: String, value: Int?, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun ProfileMenuRow(label: String, supporting: String, icon: ImageVector, onClick: () -> Unit) {
+private fun ProfileMenuRow(
+    label: String,
+    supporting: String,
+    icon: ImageVector,
+    iconBackground: Color,
+    iconTint: Color,
+    onClick: () -> Unit
+) {
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
     Column {
@@ -316,8 +313,8 @@ private fun ProfileMenuRow(label: String, supporting: String, icon: ImageVector,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon, contentDescription = null, tint = colors.primary,
-                modifier = Modifier.clip(MaktabaShapes.small).background(colors.surfaceAlt)
+                icon, contentDescription = null, tint = iconTint,
+                modifier = Modifier.clip(MaktabaShapes.medium).background(iconBackground)
                     .padding(9.dp).size(18.dp)
             )
             Spacer(Modifier.width(spacing.sm))

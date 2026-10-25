@@ -40,8 +40,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun CollectionsScreen(navController: NavHostController) {
     var browse by rememberSaveable { mutableStateOf(false) }
-    CollectionPage(navController, "Collections", root = true, illustratedRoot = browse) {
-        CollectionTabs(browse, onBrowse = { browse = it }, segmented = !browse)
+    CollectionPage(navController, "Collections", root = true) {
+        CollectionTabs(browse, onBrowse = { browse = it })
         if (browse) BrowseLibrariesContent { navController.collectionRoute("shared_library", it) }
         else CollectionsYoursContent(
             collections = CollectionsRepository.collections.toList(),
@@ -56,6 +56,7 @@ fun CollectionsScreen(navController: NavHostController) {
             savedError = LibraryRepository.wishlistError,
             savedBooks = LibraryRepository.wishlistBooks,
             catalogue = LibraryRepository.maktabaCollection,
+            compact = false,
             onCatalogue = { navController.navigate("home_library") }
         )
     }
@@ -127,14 +128,14 @@ fun CollectionsYoursContent(
                 style = TextStyle(fontFamily = SerifDisplay, fontSize = 13.sp, lineHeight = 22.1.sp,
                     fontStyle = FontStyle.Italic, lineHeightStyle = CollectionLineHeight),
                 color = colors.inkMuted)
-            PrivateCollectionCard("Want to Read", "$savedLabel · Pinned", "Private", savedBooks, onWishlist)
+            PrivateCollectionCard("Want to Read", "$savedLabel · Pinned", "Private", savedBooks, onClick = onWishlist)
         }
         Spacer(Modifier.height(if (compact) 0.dp else 1.dp))
         CollectionSection("YOUR COLLECTIONS")
         CollectionLoad(collectionsState, onRetry) {
             if (collections.isEmpty()) CollectionNote("Make room for your next reading list.")
             val hidden = (settings as? LoadState.Ready)?.value?.hiddenCatalogIds
-            collections.forEach { collection ->
+            collections.forEachIndexed { index, collection ->
                 val visible = hidden?.let { collection.visibleCatalogIds(it).size }
                 val counts = if (visible == null) "${collection.catalogIds.size} selected · Visibility loading"
                     else "${collection.catalogIds.size} selected / $visible visible"
@@ -142,7 +143,8 @@ fun CollectionsYoursContent(
                     onCollection(collection.id)
                 } else PrivateCollectionCard(collection.name, counts,
                     if (collection.shared) "Shared" else "Private",
-                    collection.catalogIds.mapNotNull { id -> catalogue.find { it.catalogId == id } }) {
+                    collection.catalogIds.mapNotNull { id -> catalogue.find { it.catalogId == id } },
+                    position = index + 1) {
                     onCollection(collection.id)
                 }
             }
@@ -151,7 +153,7 @@ fun CollectionsYoursContent(
         else {
             Row(Modifier.fillMaxWidth().heightIn(min = 46.dp)
                 .drawBehind {
-                    drawRoundRect(colors.divider, cornerRadius = CornerRadius(10.dp.toPx()),
+                    drawRoundRect(colors.sageLine, cornerRadius = CornerRadius(10.dp.toPx()),
                         style = Stroke(1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx()))))
                 }.clickable(onClick = onCreate).padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally)) {
@@ -179,17 +181,20 @@ fun CollectionsYoursContent(
             Spacer(Modifier.height(1.dp))
             CollectionSection("YOUR LIBRARY")
             Surface(onClick = onSharing, shape = RoundedCornerShape(12.dp),
-                color = colors.surface, border = BorderStroke(1.dp, colors.divider)) {
+                color = colors.ochre, border = BorderStroke(1.dp, colors.divider)) {
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Surface(shape = RoundedCornerShape(17.dp), color = colors.surfaceAlt, modifier = Modifier.size(34.dp)) {
+                    Surface(shape = RoundedCornerShape(17.dp), color = colors.sage, modifier = Modifier.size(34.dp)) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(Icons.Outlined.Lock, null, Modifier.size(17.dp), tint = colors.primary)
                         }
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(if ((settings as? LoadState.Ready)?.value?.libraryShared == true)
-                            "Your library is shared" else "Your library is private",
+                        Text(when (settings) {
+                            is LoadState.Ready -> if (settings.value.libraryShared)
+                                "Your library is shared" else "Your library is private"
+                            else -> "Your library sharing"
+                        },
                             style = TextStyle(fontFamily = SerifDisplay, fontSize = 17.sp, lineHeight = 22.1.sp))
                         Spacer(Modifier.height(6.dp))
                         Text(sharingLabel, color = colors.inkMuted,
@@ -205,8 +210,9 @@ fun CollectionsYoursContent(
 }
 
 @Composable
-private fun PrivateCollectionCard(title: String, count: String, visibility: String, books: List<Book>, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = MaktabaTheme.colors.surface,
+private fun PrivateCollectionCard(title: String, count: String, visibility: String, books: List<Book>,
+    position: Int = 0, onClick: () -> Unit) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = collectionAccent(position),
         border = BorderStroke(1.dp, MaktabaTheme.colors.divider)) {
         Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -220,7 +226,8 @@ private fun PrivateCollectionCard(title: String, count: String, visibility: Stri
                     lineHeight = 16.sp, lineHeightStyle = CollectionLineHeight),
                     color = MaktabaTheme.colors.inkMuted)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(Icons.Outlined.Lock, null, Modifier.size(11.dp), tint = MaktabaTheme.colors.inkMuted)
+                    if (visibility == "Private")
+                        Icon(Icons.Outlined.Lock, null, Modifier.size(11.dp), tint = MaktabaTheme.colors.inkMuted)
                     Text(visibility, style = TextStyle(fontFamily = SansBody, fontSize = 9.sp,
                         lineHeight = 14.4.sp, lineHeightStyle = CollectionLineHeight),
                         color = MaktabaTheme.colors.inkMuted)
@@ -277,12 +284,12 @@ fun BrowseLibrariesPresentation(
         BoxWithConstraints {
         val minimumCardHeight = ((maxWidth - 12.dp) / 2 - 25.dp) * 1.5f + 123.4.dp
         Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
-            libraries.chunked(2).forEach { pair ->
+            libraries.chunked(2).forEachIndexed { rowIndex, pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    pair.forEach { library ->
+                    pair.forEachIndexed { columnIndex, library ->
                         Surface(onClick = { onLibrary(library.ownerUid) },
                             modifier = Modifier.weight(1f).heightIn(min = minimumCardHeight),
-                            shape = RoundedCornerShape(12.dp), color = MaktabaTheme.colors.surface,
+                            shape = RoundedCornerShape(12.dp), color = collectionAccent(rowIndex * 2 + columnIndex),
                             border = BorderStroke(1.dp, MaktabaTheme.colors.divider)) {
                             Column(Modifier.padding(11.dp)) {
                                 CollectionMosaic(library.coverUrls, library.libraryName, Modifier.fillMaxWidth(),
@@ -334,7 +341,10 @@ fun LibrarySharingScreen(navController: NavHostController) {
                     CollectionsRepository.collectionsState !is LoadState.Ready,
                 candidatesLoading = !LibraryRepository.hasLoadedLibrary,
                 candidatesError = LibraryRepository.libraryError,
-                onRetryCandidates = LibraryRepository::retryLoads)
+                onRetryCandidates = LibraryRepository::retryLoads,
+                onPreview = FirebaseSession.currentUser?.uid?.let { uid ->
+                    { navController.collectionRoute("shared_library", uid) }
+                })
         }
     }
 }
@@ -349,7 +359,8 @@ fun LibrarySharingContent(
     hasIndependentCollections: Boolean = false,
     candidatesLoading: Boolean = false,
     candidatesError: String? = null,
-    onRetryCandidates: () -> Unit = {}
+    onRetryCandidates: () -> Unit = {},
+    onPreview: (() -> Unit)? = null
 ) {
     val colors = MaktabaTheme.colors
     val scope = rememberCoroutineScope()
@@ -370,26 +381,25 @@ fun LibrarySharingContent(
         }
     }
     Column {
-        Box(Modifier.align(Alignment.CenterHorizontally).width(32.dp).height(3.dp)
-            .background(colors.divider, RoundedCornerShape(3.dp)))
-        Spacer(Modifier.height(23.dp))
+        Spacer(Modifier.height(8.dp))
         Text("Your shelf. Your choice.", color = colors.ink,
             style = TextStyle(fontFamily = SerifDisplay, fontSize = 27.sp, lineHeight = 31.sp, letterSpacing = (-.5).sp))
         Spacer(Modifier.height(18.dp))
         Text("Sharing shows your library name, display name and owned books — including digital editions — to signed-in Book Haven readers.",
-            color = colors.inkMuted, style = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 21.6.sp,
+            color = colors.inkMuted, style = TextStyle(fontFamily = SansBody, fontSize = 11.sp, lineHeight = 19.8.sp,
                 lineHeightStyle = CollectionLineHeight))
         Spacer(Modifier.height(13.dp))
         Text("Borrowed books stay private. Lent books show only On Loan, never who has them or when they are due. Hidden books are excluded.",
-            color = colors.inkMuted, style = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 21.6.sp,
+            color = colors.inkMuted, style = TextStyle(fontFamily = SansBody, fontSize = 11.sp, lineHeight = 19.8.sp,
                 lineHeightStyle = CollectionLineHeight))
         Spacer(Modifier.height(23.dp))
         Text("LIBRARY NAME", style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 15.sp, letterSpacing = .5.sp))
         Spacer(Modifier.height(9.dp))
-        CollectionTextField(name, { name = it; saved = false }, limit = 40, enabled = !busy, paper = true)
+        CollectionTextField(name, { name = it; saved = false }, limit = 40, enabled = !busy)
         Spacer(Modifier.height(31.dp))
-        HorizontalDivider(color = colors.divider)
-        Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
+        Surface(shape = RoundedCornerShape(12.dp), color = colors.sage,
+            border = BorderStroke(1.dp, colors.sageLine)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("Share My Library", style = TextStyle(fontFamily = SansBody, fontSize = 13.sp,
@@ -406,7 +416,7 @@ fun LibrarySharingContent(
                 }
             }
         }
-        HorizontalDivider(color = colors.divider)
+        }
         if (name.trim() != settings.libraryName) {
             Spacer(Modifier.height(12.dp))
             CollectionAction(if (busy) "Saving…" else "Save library name", !busy && name.trim().length in 1..40) {
@@ -420,8 +430,10 @@ fun LibrarySharingContent(
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Hidden Books", Modifier.weight(1f),
                     style = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 18.sp))
-                Text("${settings.hiddenCatalogIds.size}", color = colors.inkMuted,
-                    style = TextStyle(fontFamily = SansBody, fontSize = 11.sp))
+                Surface(color = colors.terracotta, shape = RoundedCornerShape(20.dp)) {
+                    Text("${settings.hiddenCatalogIds.size}", Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        color = colors.terraAction, style = TextStyle(fontFamily = SansBody, fontSize = 11.sp))
+                }
                 Spacer(Modifier.width(9.dp))
                 Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(12.dp), tint = colors.inkMuted)
             }
@@ -442,7 +454,10 @@ fun LibrarySharingContent(
                 allIds.forEach { id ->
                     val book = candidates.find { it.catalogId == id }
                     val hidden = id in settings.hiddenCatalogIds
-                    Row(Modifier.fillMaxWidth().heightIn(min = 65.dp).padding(vertical = 10.dp),
+                    Surface(shape = RoundedCornerShape(9.dp),
+                        color = if (hidden) colors.terracotta else colors.surface,
+                        border = BorderStroke(1.dp, colors.divider)) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 65.dp).padding(horizontal = 9.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (book != null) BookCoverImage(book,
                             Modifier.width(30.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(3.dp)),
@@ -456,24 +471,32 @@ fun LibrarySharingContent(
                         Checkbox(hidden, { next -> mutate { onHide(id, next) } }, Modifier.size(24.dp),
                             enabled = !busy && (hidden || settings.hiddenCatalogIds.size < 200))
                     }
-                    HorizontalDivider(color = colors.divider)
+                    }
+                    Spacer(Modifier.height(6.dp))
                 }
                 Spacer(Modifier.height(14.dp))
                 CollectionNote("Hidden titles stay in your private collections. Only your shared grids, cover previews and visible counts change.")
             }
         }
         if (!enabled) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically,
+            Spacer(Modifier.height(18.dp))
+            Surface(shape = RoundedCornerShape(10.dp), color = colors.ochre,
+                border = BorderStroke(1.dp, colors.divider)) {
+            Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Icon(Icons.Outlined.Lock, null, Modifier.size(11.dp), tint = colors.inkMuted)
                 Text("Your shelf stays private until you choose otherwise.", color = colors.inkMuted,
                     style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 17.sp))
             }
-            HorizontalDivider(color = colors.divider)
+            }
         }
         if (hasIndependentCollections) {
             Spacer(Modifier.height(14.dp))
             CollectionNote("Title hiding also applies to independently shared collections, even while your whole library is private.")
+        }
+        if (settings.libraryShared && onPreview != null) {
+            Spacer(Modifier.height(15.dp))
+            CollectionOutline("Preview My Shared Shelf", enabled = !busy, onClick = onPreview)
         }
     }
 }

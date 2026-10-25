@@ -40,9 +40,11 @@ import org.junit.Test
 class CollectionsJourneyCaptureTest {
     @get:Rule val compose = createComposeRule()
     private val references = listOf(
-        "collections", "want-to-read", "browse", "shared", "sharing-off", "sharing-on",
+        "collections", "want-to-read", "browse", "shared", "sharing-off", "sharing-enabled", "sharing-on",
         "browse-own", "shared-own"
-    ) + (31..40).map { "companion-$it" } + listOf("companion-54", "companion-55")
+    ) + (31..40).map { "companion-$it" } + listOf(
+        "companion-54", "companion-55", "collections-empty", "collection-hidden"
+    )
 
     @Test
     fun captureApprovedCollectionJourneys() {
@@ -103,16 +105,16 @@ class CollectionsJourneyCaptureTest {
 
     private fun assertScenario(reference: String) {
         val heading = when (reference) {
-            "collections", "browse", "browse-own", "companion-31" -> "Collections"
+            "collections", "browse", "browse-own", "companion-31", "collections-empty" -> "Collections"
             "want-to-read" -> "Want to Read"
             "shared", "companion-40" -> "Rowan's Reading Room"
             "shared-own" -> "Alex Reader's Library"
-            "sharing-off", "sharing-on" -> "Your shelf. Your choice."
+            "sharing-off", "sharing-enabled", "sharing-on" -> "Your shelf. Your choice."
             "companion-32" -> "Give your list a name."
             "companion-33", "companion-39" -> "Slow Sunday reads"
             "companion-34" -> "Select books"
             "companion-35" -> "Make it yours."
-            "companion-36" -> "Your list. Your choice."
+            "companion-36", "collection-hidden" -> "Your list. Your choice."
             "companion-37" -> "Delete this collection?"
             "companion-38" -> "The Long Way to Sunday"
             "companion-54" -> "Library is private"
@@ -121,6 +123,26 @@ class CollectionsJourneyCaptureTest {
         }
         compose.onAllNodesWithText(heading).onFirst().assertExists()
         when (reference) {
+            "companion-31" -> {
+                compose.onNodeWithText("Slow Sunday reads").assertExists()
+                compose.onNodeWithText("3 selected / 2 visible · Private").assertExists()
+            }
+            "collections-empty" -> {
+                compose.onNodeWithText("Make room for your next reading list.").assertExists()
+                compose.onNodeWithText("Want to Read").assertExists()
+                compose.onNodeWithText("Slow Sunday reads").assertDoesNotExist()
+            }
+            "collection-hidden" -> {
+                compose.onAllNodesWithText("Shared · signed-in readers").onFirst().assertExists()
+                compose.onNodeWithText("3 selected / 0 visible").assertExists()
+                compose.onNodeWithText("3 selected titles are hidden from every shared view.").assertExists()
+                compose.onNodeWithText("The Paper Garden").assertDoesNotExist()
+            }
+            "sharing-enabled" -> {
+                compose.onNodeWithText("Visible to signed-in readers").assertExists()
+                compose.onNodeWithText("0").assertExists()
+                compose.onNodeWithText("Preview My Shared Shelf").assertExists()
+            }
             "shared", "shared-own" -> {
                 compose.onNodeWithText("A Field Guide to Small Things").assertDoesNotExist()
                 compose.onNodeWithText("The Restless City").assertDoesNotExist()
@@ -195,21 +217,21 @@ private class CaptureCollections {
 
     @Composable
     fun Render(reference: String) {
-        val root = reference in setOf("collections", "browse", "browse-own", "companion-31")
-        val compactRoot = reference == "companion-31"
-        val sheet = reference == "sharing-off" || reference == "sharing-on"
-        val originalNested = reference in setOf("want-to-read", "shared", "shared-own", "sharing-off", "sharing-on")
+        val root = reference in setOf("collections", "browse", "browse-own", "companion-31", "collections-empty")
+        val compactRoot = reference in setOf("companion-31", "collections-empty")
+        val sheet = reference in setOf("sharing-off", "sharing-enabled", "sharing-on")
+        val originalNested = reference in setOf("want-to-read", "shared", "shared-own") || sheet
         val title = when (reference) {
-            "collections", "browse", "browse-own", "companion-31" -> "Collections"
+            "collections", "browse", "browse-own", "companion-31", "collections-empty" -> "Collections"
             "want-to-read" -> "Want to Read"
             "shared", "shared-own" -> ""
             "companion-40" -> "Shared library"
-            "sharing-off", "sharing-on" -> "Library Sharing"
+            "sharing-off", "sharing-enabled", "sharing-on" -> "Library Sharing"
             "companion-32" -> "Create collection"
             "companion-33", "companion-55" -> "Collection"
             "companion-34" -> "Select books"
             "companion-35" -> "Edit collection"
-            "companion-36" -> "Privacy & sharing"
+            "companion-36", "collection-hidden" -> "Privacy & sharing"
             "companion-37" -> "Delete collection"
             "companion-38" -> "Add to collection"
             "companion-39" -> "Owner reader preview"
@@ -223,6 +245,11 @@ private class CaptureCollections {
                 else if (root) CollectionIllustratedTopBar(title)
                 else ScreenTopBar(title,
                     onBack = if (root) null else ({}), actions = {
+                        when (reference) {
+                            "companion-32", "companion-35" -> CollectionHeaderArtwork(R.drawable.illus_cup_books)
+                            "companion-33", "companion-36", "companion-38", "companion-39",
+                            "companion-54", "companion-55", "collection-hidden" -> CollectionHeaderArtwork(R.drawable.illus_loan_shelf)
+                        }
                         if (reference in setOf("shared", "shared-own", "companion-40"))
                             IconButton(onClick = {}) { Icon(Icons.Outlined.MoreHoriz, "Open library menu") }
                     })
@@ -237,9 +264,9 @@ private class CaptureCollections {
             }
             val top = if (sheet) 10.dp else if (compactRoot) 7.dp else if (root) 0.dp else if (originalNested) 6.dp else 7.dp
             Surface(Modifier.fillMaxSize().padding(padding),
-                color = if (sheet) MaktabaTheme.colors.surface else MaktabaTheme.colors.background,
+                color = if (sheet) MaktabaTheme.colors.background else androidx.compose.ui.graphics.Color.Transparent,
                 shape = if (sheet) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp) else RoundedCornerShape(0.dp),
-                border = if (sheet) BorderStroke(1.dp, MaktabaTheme.colors.divider) else null) {
+                border = null) {
             Column(Modifier.fillMaxSize()
                 .then(if (reference == "companion-34") Modifier else Modifier.verticalScroll(scroll))
                 .padding(start = gutter, end = gutter, top = top, bottom = if (reference == "companion-34") 10.dp else 28.dp),
@@ -249,8 +276,9 @@ private class CaptureCollections {
                     CollectionTabs(browse, {}, segmented = compactRoot)
                 }
                 when (reference) {
-                    "collections", "companion-31" -> CollectionsYoursContent(
-                        collections = if (reference == "companion-31") listOf(collection) else listOf(
+                    "collections", "companion-31", "collections-empty" -> CollectionsYoursContent(
+                        collections = if (reference == "collections-empty") emptyList()
+                            else if (compactRoot) listOf(collection) else listOf(
                             CustomCollection("quiet", "Quiet Weekend Reads",
                                 listOf("quiet-mornings", "solitude", "winterlight"), false),
                             CustomCollection("club", "For the Book Club",
@@ -273,19 +301,22 @@ private class CaptureCollections {
                     "shared", "shared-own", "companion-40" ->
                         SharedLibraryContent(library(reference == "shared-own"), {}, {},
                             isOwner = reference == "shared-own", showMenu = reference == "companion-40", catalogue = books)
-                    "sharing-off", "sharing-on" -> LibrarySharingContent(
-                        settings.copy(libraryShared = reference == "sharing-on",
+                    "sharing-off", "sharing-enabled", "sharing-on" -> LibrarySharingContent(
+                        settings.copy(libraryShared = reference != "sharing-off",
                             hiddenCatalogIds = if (reference == "sharing-on") hidden else emptySet()),
                         listOf("quiet-mornings", "distant-shores", "stillwater", "solitude", "paper-garden", "winterlight").map(::book),
                         onSave = { _, _ -> }, onHide = { _, _ -> },
-                        initialHiddenExpanded = reference == "sharing-on")
+                        initialHiddenExpanded = reference == "sharing-on", onPreview = {})
                     "companion-32" -> CollectionCreateContent("", false, false, null, {}, {})
                     "companion-33" -> CollectionDetailContent(collection, LoadState.Ready(settings),
                         books, {}, {}, {}, {}, ownerDisplayName = "Alex Reader")
                     "companion-34" -> CollectionBookSelection(collection, LoadState.Ready(settings), books) {}
                     "companion-35" -> CollectionEditContent(collection, {}, {}, {})
-                    "companion-36", "companion-39" -> CollectionPrivacyContent(
-                        collection, settings, books, {}, {}, {}, initialPreview = reference == "companion-39",
+                    "companion-36", "companion-39", "collection-hidden" -> CollectionPrivacyContent(
+                        collection.copy(shared = reference == "collection-hidden"),
+                        if (reference == "collection-hidden")
+                            settings.copy(hiddenCatalogIds = collection.catalogIds.toSet()) else settings,
+                        books, {}, {}, {}, initialPreview = reference == "companion-39",
                         ownerDisplayName = "Alex Reader")
                     "companion-37" -> CollectionDeleteContent(collection, false, null, {}, {})
                     "companion-38" -> {

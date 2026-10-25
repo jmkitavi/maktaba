@@ -65,6 +65,7 @@ import com.maktaba.app.ui.components.ScreenTopBar
 import com.maktaba.app.ui.components.TextActionButton
 import com.maktaba.app.ui.components.BottomNavTab
 import com.maktaba.app.ui.components.navigateToTab
+import com.maktaba.app.ui.components.SoulWelcomeIllustration
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
@@ -194,14 +195,24 @@ internal fun SettingsContent(
     val colors = MaktabaTheme.colors
     val bodyStyle = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp)
     MaktabaScaffold(
-        topBar = { ScreenTopBar(state.page.title, onBack = onBack) },
+        topBar = {
+            ScreenTopBar(state.page.title, onBack = onBack, actions = {
+                if (state.page != SettingsPage.ABOUT) Image(
+                    painterResource(when (state.page) {
+                        SettingsPage.ROOT -> R.drawable.illus_loan_shelf
+                        SettingsPage.APPEARANCE -> R.drawable.illus_cup_books
+                        else -> R.drawable.illus_book_sprig
+                    }), null, modifier = Modifier.size(42.dp, 44.dp)
+                )
+            })
+        },
         selectedTab = BottomNavTab.PROFILE,
         onTabSelected = onTabSelected,
         snackbarHostState = snackbarHostState
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 7.dp),
+                .padding(horizontal = 20.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(
                 if (state.page == SettingsPage.ROOT || state.page == SettingsPage.ABOUT) 0.dp else 12.dp
             )
@@ -232,6 +243,7 @@ internal fun SettingsContent(
                         AppAppearance.values().forEach { appearance ->
                             Row(
                                 Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .background(if (appearance == state.appearance) colors.sage else androidx.compose.ui.graphics.Color.Transparent, MaktabaShapes.small)
                                     .selectable(
                                         selected = appearance == state.appearance, enabled = !state.saving,
                                         role = Role.RadioButton, onClick = { onAppearance(appearance) }
@@ -248,14 +260,14 @@ internal fun SettingsContent(
                     Text(
                         "Appearance is saved only on this device. Your account preferences are unchanged.",
                         style = bodyStyle, color = colors.accent,
-                        modifier = Modifier.fillMaxWidth().background(colors.successContainer, MaktabaShapes.small)
+                        modifier = Modifier.fillMaxWidth().background(colors.sage, MaktabaShapes.small)
                             .border(1.dp, colors.divider, MaktabaShapes.small).padding(12.dp)
                     )
                 }
                 SettingsPage.NOTIFICATIONS -> {
                     Text("Notifications on this device", style = MaterialTheme.typography.headlineMedium, color = colors.ink, modifier = Modifier.padding(top = 13.dp))
                     Column(
-                        Modifier.fillMaxWidth().background(colors.surface, MaktabaShapes.medium)
+                        Modifier.fillMaxWidth().background(colors.sage, MaktabaShapes.medium)
                             .border(1.dp, colors.divider, MaktabaShapes.medium).padding(15.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -287,11 +299,9 @@ internal fun SettingsContent(
                     }
                 }
                 SettingsPage.ABOUT -> {
-                    Image(
-                        painterResource(R.drawable.illus_home_icon), contentDescription = null,
-                        modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 20.dp).width(150.dp).height(100.dp)
-                    )
-                    Text("Book Haven", style = MaterialTheme.typography.headlineMedium, color = colors.ink)
+                    SoulWelcomeIllustration(R.drawable.illus_onboarding,
+                        Modifier.align(Alignment.CenterHorizontally).padding(top = 5.dp, bottom = 12.dp).width(238.dp).height(190.dp))
+                    Text("A familiar shelf.", style = MaterialTheme.typography.headlineMedium, color = colors.ink)
                     Spacer(Modifier.height(12.dp))
                     Text("A place for your books, and the stories you share.", style = bodyStyle, color = colors.inkMuted)
                     Spacer(Modifier.height(12.dp))
@@ -306,7 +316,7 @@ internal fun SettingsContent(
 @Composable
 private fun SettingsSection(title: String) {
     Text(
-        title, color = MaktabaTheme.colors.inkMuted,
+        title, color = MaktabaTheme.colors.accent,
         style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = 0.7.sp),
         modifier = Modifier.padding(top = 23.dp, bottom = 8.dp)
     )
@@ -317,7 +327,7 @@ private fun SettingsMenuRow(title: String, description: String, onClick: () -> U
     val colors = MaktabaTheme.colors
     Row(
         Modifier.fillMaxWidth().heightIn(min = 60.dp)
-            .clickable(role = Role.Button, onClick = onClick).padding(vertical = 10.dp),
+            .clickable(role = Role.Button, onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -337,7 +347,7 @@ private fun SettingsPanel(text: String) {
     val colors = MaktabaTheme.colors
     Text(
         text, color = colors.inkMuted, style = MaterialTheme.typography.bodySmall,
-        modifier = Modifier.fillMaxWidth().background(colors.surface, MaktabaShapes.medium)
+        modifier = Modifier.fillMaxWidth().background(colors.sage, MaktabaShapes.medium)
             .border(1.dp, colors.divider, MaktabaShapes.medium).padding(16.dp)
     )
 }

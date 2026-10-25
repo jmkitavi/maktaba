@@ -21,7 +21,6 @@ import org.junit.Rule
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneOffset
 
 class HandoffJourneyCaptureTest {
@@ -42,11 +41,15 @@ class HandoffJourneyCaptureTest {
         }
         assertTrue("The exact local handoff jacket must be ready before capture.", jacket is SuccessResult)
         val due = Instant.ofEpochMilli(LoanTimeFormatter.localDateToEndOfDayMillis(
-            LocalDate.of(2026, 11, 6).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), ZoneOffset.UTC))
+            defaultReturnPickerMillis(JourneyFixtures.clock), ZoneOffset.UTC))
         val invite = PendingLoanInvite("capture-invite", book.id,
             requireNotNull(LoanInviteCode.parse("DEMO-2048")), due, now.plusSeconds(86400))
         val review = ActiveLoan("capture-invite", book.id, "Alex Reader", LoanRole.BORROWER,
             LoanStatus.PENDING, due, null, null, null)
+        val foundDraft = AddBookDraft(
+            title = book.title, author = book.author, binding = "Paperback",
+            coverUrl = book.coverUrl, source = "isbnsearch", originalFormat = book.format
+        )
         val scenario = mutableStateOf("lend")
 
         compose.setContent {
@@ -68,15 +71,20 @@ class HandoffJourneyCaptureTest {
                                 "companion-44" -> AddBookStep.ENTRY
                                 "companion-45", "companion-45-cancelled" -> AddBookStep.SCANNER
                                 "companion-46" -> AddBookStep.ISBN
-                                "companion-47" -> AddBookStep.DETAILS
+                                "companion-47", "isbn-found" -> AddBookStep.DETAILS
                                 else -> AddBookStep.SUCCESS
                             }
                             AddBookContent(
                                 AddBookState(
                                     step = step,
-                                    draft = if (step == AddBookStep.SUCCESS)
-                                        AddBookDraft(title = book.title, author = book.author, binding = "Paperback")
-                                        else AddBookDraft(),
+                                    isbn = if (scenario.value == "isbn-found") "9780000000002" else "",
+                                    draft = when {
+                                        scenario.value == "isbn-found" -> foundDraft
+                                        step == AddBookStep.SUCCESS -> AddBookDraft(
+                                            title = book.title, author = book.author, binding = "Paperback"
+                                        )
+                                        else -> AddBookDraft()
+                                    },
                                     error = if (scenario.value == "companion-45-cancelled")
                                         "Scan cancelled. Try again, type the ISBN, or enter details by hand." else null
                                 ), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
@@ -98,7 +106,8 @@ class HandoffJourneyCaptureTest {
             "companion-46" to "Find this edition.",
             "companion-47" to "Title (required)",
             "companion-48" to "A new book at home.",
-            "companion-45-cancelled" to "Scan cancelled. Try again, type the ISBN, or enter details by hand."
+            "companion-45-cancelled" to "Scan cancelled. Try again, type the ISBN, or enter details by hand.",
+            "isbn-found" to "Title (required)"
         )
         assertions.forEach { (reference, text) ->
             compose.runOnIdle { scenario.value = reference }
@@ -116,6 +125,12 @@ class HandoffJourneyCaptureTest {
             if (reference == "companion-45") {
                 compose.onNodeWithText("Scan cancelled. Try again, type the ISBN, or enter details by hand.")
                     .assertDoesNotExist()
+            }
+            if (reference == "isbn-found") {
+                compose.onNodeWithText("From ISBNsearch · check this edition").assertExists()
+                compose.onNodeWithContentDescription("Title (required)").assertTextContains(book.title)
+                compose.onNodeWithContentDescription("Author (required)").assertTextContains(book.author)
+                compose.onNodeWithText("Add to my library").assertIsEnabled()
             }
             val bounds = compose.onRoot().getUnclippedBoundsInRoot()
             val actual = (bounds.right - bounds.left).value

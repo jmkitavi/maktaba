@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -34,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.Role
@@ -46,8 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.navigation.NavHostController
 import com.maktaba.app.data.LibraryRepository
+import com.maktaba.app.R
 import com.maktaba.app.data.NotificationItem
-import com.maktaba.app.ui.components.EmptyState
 import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
@@ -127,7 +131,11 @@ fun NotificationsContent(
     val spacing = MaktabaTheme.spacing
     val gutter = 18.dp
     val status = inboxStatus(loaded, error, items, filter)
-    MaktabaScaffold(topBar = { ScreenTopBar("Notifications", onBack = onBack) }) { padding ->
+    MaktabaScaffold(topBar = {
+        ScreenTopBar("Notifications", onBack = onBack, actions = {
+            HandoffCompanionArt(R.drawable.illus_book_sprig)
+        })
+    }) { padding ->
         val direction = LocalLayoutDirection.current
         // The nested bottom bar owns the navigation inset; do not reserve it twice.
         val contentPadding = PaddingValues(
@@ -135,7 +143,7 @@ fun NotificationsContent(
             top = padding.calculateTopPadding(),
             end = padding.calculateEndPadding(direction)
         )
-        Column(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(contentPadding).background(colors.background)) {
+        Column(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(contentPadding)) {
         Column(Modifier.weight(1f).fillMaxWidth()) {
             if (loaded && error == null) {
                 Text(
@@ -143,24 +151,24 @@ fun NotificationsContent(
                     style = MaterialTheme.typography.bodySmall.copy(lineHeight = 19.8.sp), color = colors.inkMuted,
                     modifier = Modifier.padding(start = gutter, end = gutter, top = 12.dp)
                 )
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = gutter)
-                    .clip(MaktabaShapes.small).background(colors.surfaceAlt).padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                InboxFilter.entries.forEach { value ->
-                    Box(
-                        Modifier.defaultMinSize(minHeight = 48.dp).clip(MaktabaShapes.small)
-                            .background(if (filter == value) colors.surface else colors.surfaceAlt)
-                            .selectable(selected = filter == value, role = Role.Tab, onClick = { onFilter(value) })
-                            .padding(horizontal = 13.dp)
-                            .semantics { contentDescription = if (value == InboxFilter.UNREAD) "Show unread notifications" else "Show all notifications" },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(if (value == InboxFilter.ALL) "All" else "Unread",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                            color = if (filter == value) colors.primary else colors.ink)
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = gutter)
+                        .clip(MaktabaShapes.small).background(colors.surfaceAlt).padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    InboxFilter.entries.forEach { value ->
+                        Box(
+                            Modifier.defaultMinSize(minHeight = 48.dp).clip(MaktabaShapes.small)
+                                .background(if (filter == value) colors.surface else colors.surfaceAlt)
+                                .selectable(selected = filter == value, role = Role.Tab, onClick = { onFilter(value) })
+                                .padding(horizontal = 13.dp)
+                                .semantics { contentDescription = if (value == InboxFilter.UNREAD) "Show unread notifications" else "Show all notifications" },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (value == InboxFilter.ALL) "All" else "Unread",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                color = if (filter == value) colors.primary else colors.ink)
+                        }
                     }
                 }
             }
@@ -175,15 +183,26 @@ fun NotificationsContent(
                     Modifier.fillMaxWidth().padding(spacing.gutter),
                     verticalArrangement = Arrangement.spacedBy(spacing.md)
                 ) {
-                    LoanIntro("Could Not Load Notifications", error ?: "Please try again.")
+                    Spacer(Modifier.height(24.dp))
+                    Image(painterResource(R.drawable.illus_home_icon), null, contentScale = ContentScale.Fit,
+                        modifier = Modifier.align(Alignment.CenterHorizontally).width(150.dp).height(100.dp))
+                    LoanIntro("Could Not Load Notifications", "Your updates could not be loaded.")
+                    HandoffNotice(error ?: "Please try again.", error = true)
                     PrimaryButton("Try Again", onClick = onRetry)
                 }
-                InboxStatus.EMPTY, InboxStatus.NO_UNREAD -> EmptyState(
-                    modifier = Modifier.weight(1f),
-                    title = if (status == InboxStatus.NO_UNREAD) "No unread notifications" else "You Are All Caught Up",
-                    message = if (status == InboxStatus.NO_UNREAD) "Switch to All to see your earlier updates."
-                    else "Reminders about due dates and returns will arrive here."
-                )
+                InboxStatus.EMPTY, InboxStatus.NO_UNREAD -> Column(
+                    Modifier.weight(1f).fillMaxWidth().padding(horizontal = gutter).padding(top = 44.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(painterResource(R.drawable.illus_home_icon), null, contentScale = ContentScale.Fit,
+                        modifier = Modifier.width(150.dp).height(100.dp))
+                    Spacer(Modifier.height(20.dp))
+                    LoanIntro(
+                        title = if (status == InboxStatus.NO_UNREAD) "No unread notifications" else "You Are All Caught Up",
+                        message = if (status == InboxStatus.NO_UNREAD) "Switch to All to see your earlier updates."
+                        else "Reminders about due dates and returns will arrive here."
+                    )
+                }
                 InboxStatus.READY -> {
                     val visible = if (filter == InboxFilter.UNREAD) items.filter { it.isUnread } else items
                     LazyColumn(
@@ -226,7 +245,7 @@ private fun NotificationRow(
     )
     Column(
         Modifier.fillMaxWidth().clip(rowShape)
-            .background(if (item.isUnread) colors.surfaceAlt else colors.surface)
+            .background(if (item.isUnread) colors.sage else colors.backgroundElevated)
             .border(BorderStroke(1.dp, colors.divider), rowShape)
             .drawBehind {
                 if (item.isUnread) drawLine(colors.primary, Offset(1.5.dp.toPx(), 0f),
@@ -250,7 +269,7 @@ private fun NotificationRow(
                     fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = lineHeight
                 ),
                 modifier = Modifier.clip(RoundedCornerShape(5.dp))
-                    .background(if (item.type == "lender_overdue") colors.warningContainer else colors.surfaceAlt)
+                    .background(if (item.type == "lender_overdue") colors.ochre else colors.surfaceAlt)
                     .padding(horizontal = 7.dp, vertical = 4.dp)
             )
         Spacer(Modifier.height(4.dp))

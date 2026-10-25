@@ -19,7 +19,7 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 
 object JourneyFixtures {
-    val clock: Clock = Clock.fixed(Instant.parse("2026-10-23T12:00:00Z"), ZoneOffset.UTC)
+    val clock: Clock = Clock.fixed(Instant.parse("2026-10-25T12:00:00Z"), ZoneOffset.UTC)
     private val records: List<JSONObject> by lazy {
         val raw = InstrumentationRegistry.getInstrumentation().context.assets
             .open("journey-manifest.json").bufferedReader().use { it.readText() }
@@ -73,7 +73,7 @@ object JourneyFixtures {
                 status = LoanStatus.ACTIVE,
                 dueAt = LocalDate.now(clock).plusDays(record.getLong("days"))
                     .atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC),
-                acceptedAt = Instant.parse(if (lender) "2026-09-28T12:00:00Z" else "2026-10-04T12:00:00Z"),
+                acceptedAt = Instant.parse(if (lender) "2026-09-30T12:00:00Z" else "2026-10-06T12:00:00Z"),
                 returnRequestedAt = null, returnedAt = null,
                 counterpartyUid = "fixture-${record.getString("person").lowercase()}"
             )

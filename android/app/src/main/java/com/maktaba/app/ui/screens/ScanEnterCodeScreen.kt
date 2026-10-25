@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -24,7 +25,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -129,13 +129,13 @@ fun ScanEnterCodeContent(
         Image(painterResource(R.drawable.illus_enter_code), null, contentScale = ContentScale.Fit,
             modifier = Modifier.align(Alignment.CenterHorizontally).width(164.dp).aspectRatio(1012f / 414f))
         Spacer(Modifier.height(26.dp))
-        HandoffHeading("A shared story awaits.", centered = true)
-        Spacer(Modifier.height(12.dp))
-        Text("Scan the lender's QR code, or enter the code they sent you.",
-            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 22.sp), color = colors.inkMuted,
-            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
-        Spacer(Modifier.height(24.dp))
-        OutlinedCard(onClick = onScan, enabled = !busy, shape = MaktabaShapes.medium) {
+        LoanIntro("A shared story awaits.", "Scan the lender's QR code, or enter the code they sent you.")
+        Spacer(Modifier.height(22.dp))
+        OutlinedCard(onClick = onScan, enabled = !busy, shape = MaktabaShapes.medium,
+            border = BorderStroke(1.dp, colors.sageLine),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = colors.sage, disabledContainerColor = colors.sage
+            )) {
             Row(Modifier.fillMaxWidth().heightIn(min = 74.dp).padding(horizontal = 13.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(38.dp).clip(CircleShape).background(colors.surfaceAlt),
@@ -167,10 +167,12 @@ fun ScanEnterCodeContent(
         Spacer(Modifier.height(10.dp))
         HandoffTextField(
             value = state.code, onValueChange = onCode, enabled = !busy,
+            containerColor = colors.ochre,
             placeholder = "ABCD-1234", singleLine = true, isError = state.error != null,
             textStyle = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = 19.sp, lineHeight = 22.sp, letterSpacing = 2.sp),
-            modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Enter the Code" },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
+                .semantics { contentDescription = "Enter the Code" },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii,
                 capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { if (!busy) onFind() })

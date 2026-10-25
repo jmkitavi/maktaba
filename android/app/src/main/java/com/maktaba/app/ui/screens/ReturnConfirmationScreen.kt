@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -157,7 +158,6 @@ fun ReturnConfirmationContent(
     onOpenLoan: () -> Unit,
     onLoans: () -> Unit
 ) {
-    val colors = MaktabaTheme.colors
     val complete = stage == ReturnStage.COMPLETE
     LoanPage(
         "Return",
@@ -186,17 +186,17 @@ fun ReturnConfirmationContent(
     ) {
         if (complete) {
             Spacer(Modifier.height(22.dp))
-            Icon(Icons.Filled.Check, contentDescription = "Return complete", tint = colors.success,
-                modifier = Modifier.align(Alignment.CenterHorizontally).size(52.dp)
-                    .clip(CircleShape).background(colors.successContainer).padding(13.dp))
-            Spacer(Modifier.height(22.dp))
+            Image(painterResource(R.drawable.illus_return_complete),
+                contentDescription = "Return complete", contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().height(110.dp))
+            Spacer(Modifier.height(17.dp))
         } else {
             Spacer(Modifier.height(1.dp))
             Image(
-                painterResource(R.drawable.illus_return_confirmation),
+                painterResource(R.drawable.illus_handoff),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().height(103.dp)
+                modifier = Modifier.align(Alignment.CenterHorizontally).width(216.dp).height(102.dp)
             )
             Spacer(Modifier.height(17.dp))
         }

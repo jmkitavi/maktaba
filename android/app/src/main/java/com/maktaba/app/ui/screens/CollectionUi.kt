@@ -66,6 +66,7 @@ internal fun CollectionPage(
     sheet: Boolean = false,
     scrollable: Boolean = true,
     illustratedRoot: Boolean = true,
+    headerArt: Int? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -77,14 +78,17 @@ internal fun CollectionPage(
             else if (root) CollectionIllustratedTopBar(title)
             else ScreenTopBar(title = title,
                 onBack = if (root) null else ({ navController.popBackStack(); Unit }),
-                actions = actions)
+                actions = {
+                    headerArt?.let { CollectionHeaderArtwork(it) }
+                    actions()
+                })
         }
     ) { padding ->
         Surface(
             modifier = Modifier.fillMaxSize().padding(padding),
-            color = if (sheet) MaktabaTheme.colors.surface else MaktabaTheme.colors.background,
+            color = if (sheet) MaktabaTheme.colors.background else Color.Transparent,
             shape = if (sheet) RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp) else RoundedCornerShape(0.dp),
-            border = if (sheet) BorderStroke(1.dp, MaktabaTheme.colors.divider) else null
+            border = null
         ) {
             val compactRoot = root && !illustratedRoot
             val gutter = when {
@@ -107,8 +111,14 @@ internal fun CollectionPage(
 }
 
 @Composable
+internal fun CollectionHeaderArtwork(resource: Int) {
+    Image(painterResource(resource), null, Modifier.size(42.dp, 44.dp).alpha(.8f),
+        contentScale = ContentScale.Fit)
+}
+
+@Composable
 internal fun CollectionIllustratedTopBar(title: String) {
-    Column(Modifier.fillMaxWidth().background(MaktabaTheme.colors.background).statusBarsPadding()
+    Column(Modifier.fillMaxWidth().statusBarsPadding()
         .padding(horizontal = 16.dp, vertical = 14.dp)) {
         Text("BOOK HAVEN", color = MaktabaTheme.colors.primary,
             style = TextStyle(fontFamily = SansBody, fontSize = 8.sp, lineHeight = 10.sp,
@@ -126,13 +136,17 @@ internal fun CollectionIllustratedTopBar(title: String) {
 
 @Composable
 internal fun CollectionCompactTopBar(title: String) {
-    Column(Modifier.fillMaxWidth().background(MaktabaTheme.colors.background).statusBarsPadding()
-        .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 9.dp)) {
-        Text("BOOK HAVEN", color = MaktabaTheme.colors.primary,
-            style = TextStyle(fontFamily = SansBody, fontSize = 8.sp, lineHeight = 10.sp, letterSpacing = 1.8.sp))
-        Spacer(Modifier.height(5.dp))
-        Text(title, modifier = Modifier.semantics { heading() }, color = MaktabaTheme.colors.ink,
-            style = TextStyle(fontFamily = SerifDisplay, fontSize = 24.sp, lineHeight = 29.sp, letterSpacing = (-.5).sp))
+    Row(Modifier.fillMaxWidth().statusBarsPadding()
+        .padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)
+            .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 9.dp)) {
+            Text("BOOK HAVEN", color = MaktabaTheme.colors.primary,
+                style = TextStyle(fontFamily = SansBody, fontSize = 8.sp, lineHeight = 10.sp, letterSpacing = 1.8.sp))
+            Spacer(Modifier.height(5.dp))
+            Text(title, modifier = Modifier.semantics { heading() }, color = MaktabaTheme.colors.ink,
+                style = TextStyle(fontFamily = SerifDisplay, fontSize = 24.sp, lineHeight = 29.sp, letterSpacing = (-.5).sp))
+        }
+        CollectionHeaderArtwork(R.drawable.illus_loan_shelf)
     }
 }
 
@@ -153,15 +167,15 @@ internal fun CollectionNote(text: String, modifier: Modifier = Modifier) {
 @Composable
 internal fun CollectionSection(text: String) {
     Text(text, style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 15.sp,
-        letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold), color = MaktabaTheme.colors.inkMuted)
+        letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold), color = MaktabaTheme.colors.primary)
 }
 
 @Composable
 internal fun CollectionBadge(text: String, shared: Boolean = false) {
     Surface(shape = RoundedCornerShape(5.dp),
-        color = if (shared) MaktabaTheme.colors.successContainer else MaktabaTheme.colors.surfaceAlt) {
+        color = if (shared) MaktabaTheme.colors.sage else MaktabaTheme.colors.surfaceAlt) {
         Text(text, Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-            color = if (shared) MaktabaTheme.colors.success else MaktabaTheme.colors.inkMuted,
+            color = if (shared) MaktabaTheme.colors.primary else MaktabaTheme.colors.inkMuted,
             style = TextStyle(fontFamily = SansBody, fontSize = 10.sp, lineHeight = 15.sp,
                 lineHeightStyle = CollectionLineHeight))
     }
@@ -207,11 +221,11 @@ internal fun CollectionOutline(label: String, enabled: Boolean = true, danger: B
     val colors = MaktabaTheme.colors
     CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
         OutlinedButton(onClick, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp),
-            shape = RoundedCornerShape(9.dp), border = BorderStroke(1.dp, if (danger) colors.danger else colors.divider),
+            shape = RoundedCornerShape(9.dp), border = BorderStroke(1.dp, if (danger) colors.danger else colors.sageLine),
             contentPadding = PaddingValues(horizontal = 15.dp, vertical = 11.dp),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = if (danger) colors.dangerContainer else Color.Transparent,
-                contentColor = if (danger) colors.danger else colors.ink)) {
+                contentColor = if (danger) colors.danger else colors.primary)) {
             Text(label, style = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 18.sp,
                 fontWeight = FontWeight.Normal, lineHeightStyle = CollectionLineHeight))
         }
@@ -241,7 +255,7 @@ internal fun CollectionTextField(
             singleLine = true, cursorBrush = SolidColor(colors.primary),
             textStyle = TextStyle(fontFamily = SansBody, fontSize = 12.sp, lineHeight = 19.2.sp, color = colors.ink),
             modifier = Modifier.fillMaxWidth().heightIn(min = if (search) 44.dp else 46.dp)
-                .border(1.dp, colors.divider, RoundedCornerShape(9.dp))
+                .border(1.dp, if (search) colors.sageLine else colors.divider, RoundedCornerShape(9.dp))
                 .background(if (paper) colors.background else colors.surface, RoundedCornerShape(9.dp))
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             decorationBox = { input ->
@@ -264,17 +278,30 @@ internal fun CollectionTextField(
 }
 
 @Composable
-internal fun CollectionPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun CollectionPanel(
+    modifier: Modifier = Modifier,
+    color: Color = MaktabaTheme.colors.sage,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaktabaTheme.colors.divider), color = MaktabaTheme.colors.surface) {
+        border = BorderStroke(1.dp, MaktabaTheme.colors.divider), color = color) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
 }
 
 @Composable
 internal fun CollectionProblem(error: Throwable, retry: () -> Unit) {
-    CollectionNote(collectionErrorMessage(error))
+    CollectionPanel(color = MaktabaTheme.colors.terracotta) {
+        CollectionNote(collectionErrorMessage(error))
+    }
     CollectionOutline("Retry", onClick = retry)
+}
+
+@Composable
+internal fun collectionAccent(position: Int): Color = when (position % 3) {
+    0 -> MaktabaTheme.colors.sage
+    1 -> MaktabaTheme.colors.ochre
+    else -> MaktabaTheme.colors.terracotta
 }
 
 @Composable

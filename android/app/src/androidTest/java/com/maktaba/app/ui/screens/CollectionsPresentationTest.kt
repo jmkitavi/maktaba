@@ -110,4 +110,39 @@ class CollectionsPresentationTest {
         compose.onNodeWithText("Retry titles").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, retries) }
     }
+
+    @Test
+    fun allHiddenPreviewIsDistinctFromAnEmptyCollection() {
+        compose.setContent {
+            BookHavenTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    CollectionPrivacyContent(
+                        CustomCollection("list", "Private selection", listOf("hidden"), true),
+                        LibrarySharingSettings(hiddenCatalogIds = setOf("hidden")),
+                        listOf(book("hidden", "Hidden private title")),
+                        onSave = {}, onHiding = {}, onBook = {}, initialPreview = true)
+                }
+            }
+        }
+        compose.onNodeWithText("All selected titles are hidden").assertIsDisplayed()
+        compose.onNodeWithText("No titles selected yet").assertDoesNotExist()
+        compose.onNodeWithText("Hidden private title").assertDoesNotExist()
+        compose.onNodeWithText("0 visible titles").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyPreviewDoesNotClaimThatTitlesAreHidden() {
+        compose.setContent {
+            BookHavenTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    CollectionPrivacyContent(
+                        CustomCollection("list", "Empty list", emptyList(), false),
+                        LibrarySharingSettings(), emptyList(),
+                        onSave = {}, onHiding = {}, onBook = {}, initialPreview = true)
+                }
+            }
+        }
+        compose.onNodeWithText("No titles selected yet").assertIsDisplayed()
+        compose.onNodeWithText("All selected titles are hidden").assertDoesNotExist()
+    }
 }

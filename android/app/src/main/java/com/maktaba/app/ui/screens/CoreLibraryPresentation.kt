@@ -65,6 +65,8 @@ fun visibleLibraryLoans(loans: List<ActiveLoan>, lender: Boolean): List<ActiveLo
         )
 
 data class LibraryDetailSelection(val book: Book, val privateCopy: Boolean) {
+    val canEdit: Boolean
+        get() = privateCopy && book.status != BookStatus.BORROWED
     val canLend: Boolean
         get() = privateCopy && book.status == BookStatus.OWNED &&
             book.format == BookFormat.PHYSICAL

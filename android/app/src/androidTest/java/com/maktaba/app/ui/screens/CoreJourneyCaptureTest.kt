@@ -12,13 +12,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
@@ -64,7 +70,7 @@ class CoreJourneyCaptureTest {
             "both" -> listOf(false, true)
             else -> error("captureTheme must be light, dark or both.")
         }
-        assertEquals(Instant.parse("2026-10-23T12:00:00Z"), JourneyFixtures.clock.instant())
+        assertEquals(Instant.parse("2026-10-25T12:00:00Z"), JourneyFixtures.clock.instant())
         assertEquals(ZoneOffset.UTC, JourneyFixtures.clock.zone.normalized())
         assertEquals(8, JourneyFixtures.books.size)
         assertEquals(2, visibleLibraryLoans(JourneyFixtures.loans, lender = true).size)
@@ -89,7 +95,7 @@ class CoreJourneyCaptureTest {
 
         val references = listOf(
             "home", "detail-owned", "detail-saved", "detail-catalogue",
-            "loans-lent", "loans-borrowed", "profile"
+            "loans-lent", "loans-borrowed", "profile", "companion-67"
         )
         val scenario = mutableStateOf(Scenario(references.first(), themes.first()))
         val deviceDensity = context.resources.displayMetrics.density
@@ -142,15 +148,23 @@ class CoreJourneyCaptureTest {
                 onBook = {}, onAdd = {}, onBorrow = {}, onNotifications = {}, onTab = {},
                 onRetry = {}, clock = JourneyFixtures.clock
             )
-            "detail-owned", "detail-saved", "detail-catalogue" -> {
-                val catalogueOnly = reference != "detail-owned"
+            "detail-owned", "detail-saved", "detail-catalogue", "companion-67" -> {
+                val catalogueOnly = reference != "detail-owned" && reference != "companion-67"
                 val catalogId = if (reference == "detail-saved") "sunday" else "quiet-mornings"
                 val requestedId = if (catalogueOnly) catalogId else {
                     JourneyFixtures.books.single { it.catalogId == catalogId }.id
                 }
-                val selection = requireNotNull(selectLibraryDetail(
+                val canonicalSelection = requireNotNull(selectLibraryDetail(
                     requestedId, catalogueOnly, JourneyFixtures.books, JourneyFixtures.catalogue
                 ))
+                val selection = if (reference == "companion-67") {
+                    canonicalSelection.copy(
+                        book = canonicalSelection.book.copy(
+                            title = "${canonicalSelection.book.title} · Demo edition",
+                            binding = "Hardcover"
+                        )
+                    )
+                } else canonicalSelection
                 BookDetailContent(
                     state = LibraryBookDetailState(
                         selection = selection, loaded = true,
@@ -160,7 +174,8 @@ class CoreJourneyCaptureTest {
                     ),
                     onBack = {}, onRetry = {}, onSave = {}, onLend = {}, onLoan = {},
                     onRemove = {}, onAddToCollection = {}, onToggleHidden = {},
-                    onManageSharing = {}, clock = JourneyFixtures.clock
+                    onManageSharing = {}, clock = JourneyFixtures.clock,
+                    onEditBook = ({}).takeIf { !catalogueOnly }
                 )
             }
             "loans-lent", "loans-borrowed" -> LoansContent(
@@ -191,12 +206,18 @@ class CoreJourneyCaptureTest {
                 composeRule.onNodeWithText("THE COLLECTION").assertIsDisplayed()
                 composeRule.onNodeWithContentDescription("Search books, authors, genres").assertIsDisplayed()
             }
-            "detail-owned", "detail-saved", "detail-catalogue" -> {
+            "detail-owned", "detail-saved", "detail-catalogue", "companion-67" -> {
                 val catalogId = if (reference == "detail-saved") "sunday" else "quiet-mornings"
                 val title = JourneyFixtures.catalogue.single { it.catalogId == catalogId }.title
-                composeRule.onNodeWithText(title).assertIsDisplayed()
+                composeRule.onNodeWithText(
+                    if (reference == "companion-67") "$title · Demo edition" else title
+                ).assertIsDisplayed()
+                composeRule.onNodeWithTag("cover:$catalogId", useUnmergedTree = true)
+                    .assertWidthIsEqualTo(124.dp).assertHeightIsEqualTo(186.dp)
                 composeRule.onNodeWithText("BOOK HAVEN").assertDoesNotExist()
-                if (reference == "detail-owned") {
+                composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
+                composeRule.onNodeWithText("Edit book details").assertDoesNotExist()
+                if (reference == "detail-owned" || reference == "companion-67") {
                     composeRule.onNodeWithText("Lend This Book").assertIsDisplayed()
                     composeRule.onNodeWithText("Catalogue Title").assertDoesNotExist()
                 } else {
@@ -214,8 +235,18 @@ class CoreJourneyCaptureTest {
                     if (reference == "loans-lent") "With Sam" else "From Kit"
                 ).assertIsDisplayed()
                 composeRule.onNodeWithContentDescription("Notifications").assertDoesNotExist()
+                if (reference == "loans-lent" && JourneyCapture.width >= 360 &&
+                    JourneyCapture.fontScale == 1f
+                ) {
+                    val layouts = mutableListOf<TextLayoutResult>()
+                    composeRule.onNodeWithText(
+                        "Letters from Distant Shores", useUnmergedTree = true
+                    ).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                    assertEquals("The canonical loan title should fit one line.", 1, layouts.single().lineCount)
+                }
             }
             "profile" -> {
+                composeRule.onNodeWithText("BOOK HAVEN").assertIsDisplayed()
                 composeRule.onNodeWithText("Alex Reader").assertIsDisplayed()
                 composeRule.onNodeWithText("Your library is private").assertExists()
                 composeRule.onNodeWithText("Settings").assertExists()

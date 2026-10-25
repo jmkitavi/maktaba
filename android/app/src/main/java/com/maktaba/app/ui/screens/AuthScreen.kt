@@ -1,359 +1,240 @@
 package com.maktaba.app.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.firebase.FirebaseException
+import com.maktaba.app.R
 import com.maktaba.app.data.FirebaseSession
-import com.maktaba.app.ui.components.PrimaryButton
-import com.maktaba.app.ui.theme.BookHavenTheme
+import com.maktaba.app.ui.components.*
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
 import kotlinx.coroutines.launch
+import java.io.IOException
 
-/** A banner distinguishes "we sent your reset email" from "that password was wrong". */
-private sealed interface AuthNotice {
-    data class Error(val text: String) : AuthNotice
-    data class Success(val text: String) : AuthNotice
+internal enum class AuthPage(val title: String) {
+    SIGN_IN("Sign in"), REGISTER("Create account"), RESET("Password reset"), RESET_SENT("Password reset")
 }
 
-private const val MinPasswordLength = 6
+internal data class AuthUiState(
+    val page: AuthPage = AuthPage.SIGN_IN,
+    val name: String = "",
+    val email: String = "",
+    val password: String = "",
+    val passwordVisible: Boolean = false,
+    val loading: Boolean = false,
+    val error: String? = null,
+    val fieldErrors: Map<String, String> = emptyMap()
+)
+
+internal fun authValidation(state: AuthUiState): Map<String, String> = buildMap {
+    if (state.page == AuthPage.REGISTER && (state.name.isBlank() || state.name.trim().length > 80)) {
+        put("Name", "Enter a name of 1–80 characters.")
+    }
+    if (!Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(state.email.trim())) {
+        put("Email", "Enter a valid email address.")
+    }
+    if (state.page == AuthPage.SIGN_IN && state.password.isBlank()) put("Password", "Enter your password.")
+    if (state.page == AuthPage.REGISTER && state.password.length < 6) put("Password", "Use at least 6 characters.")
+}
 
 @Composable
-fun AuthScreen() {
-    val colors = MaktabaTheme.colors
-    val spacing = MaktabaTheme.spacing
-
-    var registering by remember { mutableStateOf(false) }
-    var displayName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf<AuthNotice?>(null) }
-
-    // Per-field errors, so the message sits under the field that caused it.
-    var nameError by remember { mutableStateOf<String?>(null) }
-    var emailError by remember { mutableStateOf<String?>(null) }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-
+fun AuthScreen(onBack: () -> Unit = {}) {
+    var state by remember { mutableStateOf(AuthUiState()) }
     val scope = rememberCoroutineScope()
-
-    fun validate(): Boolean {
-        nameError = if (registering && displayName.isBlank()) "Enter your name." else null
-        emailError = when {
-            email.isBlank() -> "Enter your email address."
-            !email.contains("@") || !email.contains(".") -> "That does not look like an email address."
-            else -> null
-        }
-        passwordError = when {
-            password.isBlank() -> "Enter your password."
-            registering && password.length < MinPasswordLength ->
-                "Use at least $MinPasswordLength characters."
-            else -> null
-        }
-        return nameError == null && emailError == null && passwordError == null
+    fun changePage(page: AuthPage) {
+        if (!state.loading) state = state.copy(page = page, password = "", error = null, fieldErrors = emptyMap())
     }
-
-    fun submit() {
-        if (loading) return
-        notice = null
-        if (!validate()) return
-        loading = true
-        scope.launch {
-            runCatching {
-                if (registering) {
-                    FirebaseSession.register(displayName.trim(), email.trim(), password)
-                } else {
-                    FirebaseSession.signIn(email.trim(), password)
-                }
-            }.onFailure {
-                notice = AuthNotice.Error(it.localizedMessage ?: "We could not sign you in.")
-            }
-            loading = false
-        }
+    fun back() {
+        if (state.page == AuthPage.SIGN_IN) onBack() else changePage(AuthPage.SIGN_IN)
     }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-            .systemBarsPadding()
-            .imePadding()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(spacing.lg),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                if (registering) "Create your account" else "Welcome back",
-                color = colors.ink,
-                style = MaterialTheme.typography.displayMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { heading() }
-            )
-            Spacer(Modifier.height(spacing.xs))
-            Text(
-                if (registering) "Start lending the books you already own."
-                else "Sign in to reach your shelf and your loans.",
-                color = colors.inkMuted,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(spacing.lg))
-
-            if (registering) {
-                AuthField(
-                    value = displayName,
-                    onValueChange = { displayName = it; nameError = null },
-                    label = "Name",
-                    error = nameError,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Next
-                )
-                Spacer(Modifier.height(spacing.sm))
-            }
-
-            AuthField(
-                value = email,
-                onValueChange = { email = it; emailError = null },
-                label = "Email",
-                error = emailError,
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            )
-            Spacer(Modifier.height(spacing.sm))
-
-            AuthField(
-                value = password,
-                onValueChange = { password = it; passwordError = null },
-                label = "Password",
-                error = passwordError,
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done,
-                onImeAction = ::submit,
-                visualTransformation = if (passwordVisible) VisualTransformation.None
-                else PasswordVisualTransformation(),
-                trailing = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Filled.VisibilityOff
-                            else Icons.Filled.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password"
-                            else "Show password",
-                            tint = colors.inkMuted
-                        )
-                    }
-                }
-            )
-
-            notice?.let { current ->
-                Spacer(Modifier.height(spacing.sm))
-                NoticeBanner(current)
-            }
-
-            Spacer(Modifier.height(spacing.md))
-            PrimaryButton(
-                text = if (registering) "Create account" else "Sign in",
-                loading = loading,
-                enabled = !loading,
-                onClick = ::submit
-            )
-
-            if (!registering) {
-                TextButton(
-                    onClick = {
-                        if (email.isBlank()) {
-                            emailError = "Enter your email address first."
-                            return@TextButton
-                        }
-                        emailError = null
-                        scope.launch {
-                            runCatching { FirebaseSession.sendPasswordReset(email.trim()) }
-                                .onSuccess {
-                                    notice = AuthNotice.Success(
-                                        "Password reset email sent to ${email.trim()}."
-                                    )
+    BackHandler(state.loading || state.page != AuthPage.SIGN_IN) { if (!state.loading) back() }
+    AuthContent(
+        state, ::back,
+        onField = { field, value ->
+            state = when (field) {
+                "Name" -> state.copy(name = value)
+                "Email" -> state.copy(email = value)
+                else -> state.copy(password = value)
+            }.copy(fieldErrors = state.fieldErrors - field, error = null)
+        },
+        onPage = ::changePage,
+        onVisibility = { state = state.copy(passwordVisible = !state.passwordVisible) },
+        onSubmit = {
+            if (!state.loading) {
+                val errors = authValidation(state)
+                state = state.copy(fieldErrors = errors, error = null)
+                if (errors.isEmpty()) {
+                    val request = state
+                    state = state.copy(loading = true)
+                    scope.launch {
+                        try {
+                            when (request.page) {
+                                AuthPage.SIGN_IN -> FirebaseSession.signIn(request.email.trim(), request.password)
+                                AuthPage.REGISTER -> FirebaseSession.register(request.name.trim(), request.email.trim(), request.password)
+                                AuthPage.RESET -> {
+                                    FirebaseSession.sendPasswordReset(request.email.trim())
+                                    state = state.copy(page = AuthPage.RESET_SENT, password = "")
                                 }
-                                .onFailure {
-                                    notice = AuthNotice.Error(
-                                        it.localizedMessage ?: "We could not send that email."
-                                    )
-                                }
+                                AuthPage.RESET_SENT -> Unit
+                            }
+                        } catch (error: FirebaseException) {
+                            state = state.copy(error = error.localizedMessage ?: "We couldn't complete that request. Please try again.")
+                        } catch (error: IOException) {
+                            state = state.copy(error = "Check your connection and try again. Your details are still here.")
+                        } finally {
+                            state = state.copy(loading = false)
                         }
                     }
-                ) {
-                    Text(
-                        "Forgot password?",
-                        color = colors.primary,
-                        style = MaterialTheme.typography.labelLarge
-                    )
                 }
             }
-
-            TextButton(
-                onClick = {
-                    registering = !registering
-                    notice = null
-                    nameError = null
-                    emailError = null
-                    passwordError = null
-                }
-            ) {
-                Text(
-                    if (registering) "Already have an account? Sign in"
-                    else "New here? Create an account",
-                    color = colors.ink,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
-
-            Spacer(Modifier.height(spacing.sm))
-            Text(
-                "By continuing you agree to Book Haven's terms and privacy policy.",
-                color = colors.inkMuted,
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center
-            )
         }
-    }
+    )
 }
 
 @Composable
-private fun AuthField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    error: String?,
-    keyboardType: KeyboardType,
-    imeAction: ImeAction,
-    onImeAction: () -> Unit = {},
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailing: (@Composable () -> Unit)? = null
+internal fun AuthContent(
+    state: AuthUiState,
+    onBack: () -> Unit,
+    onField: (String, String) -> Unit,
+    onPage: (AuthPage) -> Unit,
+    onVisibility: () -> Unit,
+    onSubmit: () -> Unit
 ) {
     val colors = MaktabaTheme.colors
-    Column(Modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { Text(label) },
-            singleLine = true,
-            isError = error != null,
-            visualTransformation = visualTransformation,
-            trailingIcon = trailing,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = keyboardType,
-                imeAction = imeAction
-            ),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                onDone = { onImeAction() },
-                onGo = { onImeAction() }
-            ),
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaktabaShapes.small,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = colors.surface,
-                unfocusedContainerColor = colors.surface,
-                focusedBorderColor = colors.primary,
-                unfocusedBorderColor = colors.divider,
-                errorBorderColor = colors.danger,
-                focusedTextColor = colors.ink,
-                unfocusedTextColor = colors.ink,
-                cursorColor = colors.primary
-            )
-        )
-        if (error != null) {
+    val reset = state.page == AuthPage.RESET
+    val registering = state.page == AuthPage.REGISTER
+    SoulAccountPage(state.page.title, onBack = { if (!state.loading) onBack() },
+        headerArt = if (state.page == AuthPage.SIGN_IN || registering) R.drawable.illus_cup_books else R.drawable.illus_book_sprig) {
+        if (state.page == AuthPage.RESET_SENT) {
+            Image(painterResource(R.drawable.illus_book_sprig), null,
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).size(90.dp, 65.dp))
+            Text("Check your inbox.", style = MaterialTheme.typography.headlineMedium, color = colors.ink)
+            Text("If an account uses ${state.email.trim()}, you'll receive instructions to reset its password.",
+                color = colors.inkMuted, style = MaterialTheme.typography.bodySmall)
+            SoulNotice("Reset instructions requested. Your password has not changed.")
+            PrimaryButton("Back to sign in", onClick = { onPage(AuthPage.SIGN_IN) })
+        } else {
             Text(
-                error,
-                color = colors.danger,
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+                if (reset) "A fresh start." else if (registering) "A little room for your stories." else "Good to have you back.",
+                style = MaterialTheme.typography.headlineMedium, color = colors.ink,
+                modifier = Modifier.padding(top = 13.dp)
             )
+            Text(
+                if (reset) "Enter your account email and we'll send reset instructions."
+                else if (registering) "A place for your books, and the stories you share."
+                else "Sign in to your account to reach your shelf and keep your loans close.",
+                color = colors.inkMuted, style = MaterialTheme.typography.bodySmall
+            )
+            if (registering) SoulTextField("Name", state.name, { onField("Name", it) },
+                error = state.fieldErrors["Name"], enabled = !state.loading)
+            SoulTextField("Email", state.email, { onField("Email", it) }, state.fieldErrors["Email"],
+                KeyboardType.Email, enabled = !state.loading)
+            if (!reset) {
+                SoulTextField("Password", state.password, { onField("Password", it) }, state.fieldErrors["Password"],
+                    KeyboardType.Password, enabled = !state.loading,
+                    visualTransformation = if (state.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    onDone = onSubmit)
+                TextButton(onClick = onVisibility, enabled = !state.loading) {
+                    Text(if (state.passwordVisible) "Hide password" else "Show password")
+                }
+            }
+            state.error?.let { SoulNotice(it, error = true) }
+            PrimaryButton(if (reset) "Send reset instructions" else if (registering) "Create account" else "Sign in",
+                loading = state.loading, onClick = onSubmit)
+            OutlinedPillButton(
+                if (reset || registering) "Already have an account? Sign in" else "New here? Create an account",
+                enabled = !state.loading,
+                onClick = { onPage(if (registering || reset) AuthPage.SIGN_IN else AuthPage.REGISTER) }
+            )
+            if (!reset && !registering) OutlinedPillButton("Forgot password?", enabled = !state.loading,
+                onClick = { onPage(AuthPage.RESET) })
         }
     }
 }
 
 @Composable
-private fun NoticeBanner(notice: AuthNotice) {
-    val colors = MaktabaTheme.colors
-    val isError = notice is AuthNotice.Error
-    val text = when (notice) {
-        is AuthNotice.Error -> notice.text
-        is AuthNotice.Success -> notice.text
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                if (isError) colors.dangerContainer else colors.successContainer,
-                MaktabaShapes.small
-            )
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            if (isError) Icons.Filled.ErrorOutline else Icons.Filled.CheckCircle,
-            contentDescription = null,
-            tint = if (isError) colors.danger else colors.success,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text,
-            color = if (isError) colors.danger else colors.success,
-            style = MaterialTheme.typography.bodyMedium
-        )
+internal fun SoulAccountPage(
+    title: String,
+    onBack: (() -> Unit)? = null,
+    branded: Boolean = false,
+    headerArt: Int? = null,
+    selectedTab: BottomNavTab? = null,
+    onTabSelected: (BottomNavTab) -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit
+) {
+    MaktabaScaffold(selectedTab = selectedTab, onTabSelected = onTabSelected, topBar = {
+        ScreenTopBar(title, onBack = onBack, branded = branded, compact = branded, actions = {
+            headerArt?.let { Image(painterResource(it), null, modifier = Modifier.size(42.dp, 44.dp)) }
+        })
+    }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
     }
 }
 
-@Preview(showBackground = true, name = "Auth")
 @Composable
-private fun AuthScreenPreview() {
-    BookHavenTheme { AuthScreen() }
+internal fun SoulNotice(text: String, error: Boolean = false) {
+    val colors = MaktabaTheme.colors
+    Text(text, color = if (error) colors.danger else colors.inkMuted,
+        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
+        modifier = Modifier.fillMaxWidth().background(if (error) colors.terracotta else colors.sage, MaktabaShapes.small)
+            .padding(12.dp))
+}
+
+@Composable
+internal fun SoulTextField(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+    error: String? = null,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    enabled: Boolean = true,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    onDone: (() -> Unit)? = null,
+    multiline: Boolean = false
+) {
+    val colors = MaktabaTheme.colors
+    val interactions = remember { MutableInteractionSource() }
+    val focused by interactions.collectIsFocusedAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = colors.ink, style = MaterialTheme.typography.bodySmall)
+        BasicTextField(
+            value, onChange, modifier = Modifier.fillMaxWidth().heightIn(min = if (multiline) 130.dp else 48.dp)
+                .background(colors.surface, MaktabaShapes.small)
+                .border(if (focused) 2.dp else 1.dp,
+                    if (error != null) colors.danger else if (focused) colors.primary else colors.divider, MaktabaShapes.small)
+                .semantics { contentDescription = label }
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.ink, lineHeight = 20.sp),
+            singleLine = !multiline, minLines = if (multiline) 4 else 1,
+            enabled = enabled, cursorBrush = SolidColor(colors.primary), interactionSource = interactions,
+            visualTransformation = visualTransformation,
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType,
+                imeAction = if (onDone != null) ImeAction.Done else if (multiline) ImeAction.Default else ImeAction.Next),
+            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() })
+        )
+        error?.let { Text(it, color = colors.danger, style = MaterialTheme.typography.labelSmall) }
+    }
 }
