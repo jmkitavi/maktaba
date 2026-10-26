@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
@@ -32,6 +33,7 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import coil.size.Size
+import com.maktaba.app.R
 import com.maktaba.app.data.Book
 import com.maktaba.app.data.BookFormat
 import com.maktaba.app.data.BookStatus
@@ -55,6 +57,24 @@ class CoreLibraryContentTest {
         author = "A Test Author", coverRes = 0, status = BookStatus.OWNED,
         format = BookFormat.PHYSICAL, genre = "Essays"
     )
+
+    @Test
+    fun detailBannerHasTransparentLeafGapsWithoutLosingFineVines() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val banner = requireNotNull(BitmapFactory.decodeResource(context.resources, R.drawable.illus_book_detail))
+        try {
+            for ((x, y) in listOf(170 to 280, 130 to 240, 150 to 320)) {
+                assertEquals("The wall between hanging leaves must be transparent.",
+                    0, android.graphics.Color.alpha(banner.getPixel(x, y)))
+            }
+            for ((x, y) in listOf(40 to 250, 130 to 170, 147 to 275)) {
+                assertTrue("Bookshelf and fine vine stems must remain visible.",
+                    android.graphics.Color.alpha(banner.getPixel(x, y)) > 180)
+            }
+        } finally {
+            banner.recycle()
+        }
+    }
 
     @Test
     fun detailsFitTheCoverItselfWithoutAPaddedPortraitBacking() {

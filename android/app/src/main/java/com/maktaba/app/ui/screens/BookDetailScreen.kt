@@ -51,13 +51,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
@@ -558,7 +554,7 @@ fun BookDetailContent(
 @Composable
 private fun DetailHero(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     val colors = MaktabaTheme.colors
-    Box(
+    BoxWithConstraints(
         Modifier.fillMaxWidth().drawBehind {
             val center = Offset(size.width * .5f, size.height * .3f)
             val radius = size.width * .73f
@@ -573,34 +569,17 @@ private fun DetailHero(content: @Composable androidx.compose.foundation.layout.C
             }
         }
     ) {
+        val bannerHeight = minOf(maxWidth / 2, 200.dp) * 1.5f + 48.dp
         Image(
             painter = painterResource(R.drawable.illus_book_detail),
             contentDescription = null,
             contentScale = ContentScale.FillHeight,
             alignment = Alignment.TopStart,
-            modifier = Modifier.offset(x = (-20).dp).size(width = 56.dp, height = 245.dp)
+            modifier = Modifier.offset(x = (-20).dp)
+                .size(width = bannerHeight / 4, height = bannerHeight)
                 .clipToBounds()
                 .graphicsLayer {
                     alpha = if (colors.isDark) .33f else .5f
-                    compositingStrategy = CompositingStrategy.Offscreen
-                }
-                .drawWithContent {
-                    drawContent()
-                    // Match the reference's elliptical mask without shrinking the full illustration.
-                    val radius = size.height * .8f
-                    val xScale = size.width / radius
-                    scale(scaleX = xScale, scaleY = 1f, pivot = Offset.Zero) {
-                        drawRect(
-                            brush = Brush.radialGradient(
-                                0f to colors.sage,
-                                .55f to colors.sage,
-                                1f to colors.sage.copy(alpha = 0f),
-                                center = Offset(0f, size.height * .2f), radius = radius
-                            ),
-                            size = Size(size.width / xScale, size.height),
-                            blendMode = BlendMode.DstIn
-                        )
-                    }
                 }
         )
         Column(
