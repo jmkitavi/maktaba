@@ -1,6 +1,7 @@
 package com.maktaba.app.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -30,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.maktaba.app.data.*
+import com.maktaba.app.R
 import com.maktaba.app.ui.components.BookCoverImage
 import com.maktaba.app.ui.theme.MaktabaTheme
 import com.maktaba.app.ui.theme.SansBody
@@ -133,7 +137,18 @@ fun CollectionsYoursContent(
         Spacer(Modifier.height(if (compact) 0.dp else 1.dp))
         CollectionSection("YOUR COLLECTIONS")
         CollectionLoad(collectionsState, onRetry) {
-            if (collections.isEmpty()) CollectionNote("Make room for your next reading list.")
+            if (collections.isEmpty()) {
+                if (compact) {
+                    CollectionPanel {
+                        Image(painterResource(R.drawable.illus_home_icon), null,
+                            Modifier.align(Alignment.CenterHorizontally)
+                                .padding(vertical = 20.dp).width(150.dp).height(100.dp),
+                            contentScale = ContentScale.Fit)
+                        CollectionNote("Grow your books into little collections — a shelf for the book club, one for the ones you'll never lend.")
+                    }
+                    Spacer(Modifier.height(12.dp))
+                } else CollectionNote("Make room for your next reading list.")
+            }
             val hidden = (settings as? LoadState.Ready)?.value?.hiddenCatalogIds
             collections.forEachIndexed { index, collection ->
                 val visible = hidden?.let { collection.visibleCatalogIds(it).size }
@@ -468,7 +483,8 @@ fun LibrarySharingContent(
                             Text(if (hidden) "Hidden" else "Visible", color = colors.inkMuted,
                                 style = TextStyle(fontFamily = SansBody, fontSize = 9.sp, lineHeight = 13.5.sp))
                         }
-                        Checkbox(hidden, { next -> mutate { onHide(id, next) } }, Modifier.size(24.dp),
+                        Checkbox(hidden, { next -> mutate { onHide(id, next) } },
+                            Modifier.size(24.dp).testTag("hidden-title-$id"),
                             enabled = !busy && (hidden || settings.hiddenCatalogIds.size < 200))
                     }
                     }

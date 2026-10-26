@@ -128,7 +128,8 @@ class CollectionsJourneyCaptureTest {
                 compose.onNodeWithText("3 selected / 2 visible · Private").assertExists()
             }
             "collections-empty" -> {
-                compose.onNodeWithText("Make room for your next reading list.").assertExists()
+                compose.onNodeWithText("Grow your books into little collections — a shelf for the book club, one for the ones you'll never lend.")
+                    .assertExists()
                 compose.onNodeWithText("Want to Read").assertExists()
                 compose.onNodeWithText("Slow Sunday reads").assertDoesNotExist()
             }
@@ -142,6 +143,10 @@ class CollectionsJourneyCaptureTest {
                 compose.onNodeWithText("Visible to signed-in readers").assertExists()
                 compose.onNodeWithText("0").assertExists()
                 compose.onNodeWithText("Preview My Shared Shelf").assertExists()
+            }
+            "sharing-on" -> {
+                compose.onNodeWithTag("hidden-title-paper-garden").assertIsOn()
+                compose.onNodeWithTag("hidden-title-winterlight").assertIsOff()
             }
             "shared", "shared-own" -> {
                 compose.onNodeWithText("A Field Guide to Small Things").assertDoesNotExist()

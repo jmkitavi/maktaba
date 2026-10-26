@@ -223,7 +223,7 @@ fun LoansContent(
                         LibraryLoanRow(
                             book = books.firstOrNull { it.id == loan.bookId },
                             loan = loan,
-                            containerColor = if (index % 2 == 0) colors.sage else colors.ochre,
+                            containerColor = if ((index % 2 == 0) == lender) colors.sage else colors.ochre,
                             clock = clock,
                             onClick = { onLoan(loan) }
                         )

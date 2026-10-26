@@ -31,6 +31,7 @@ fun MaktabaScaffold(
     Scaffold(
         modifier = modifier.soulBackground().imePadding(),
         containerColor = Color.Transparent,
+        contentColor = MaktabaTheme.colors.ink,
         topBar = topBar,
         bottomBar = {
             selectedTab?.let { MaktabaBottomNav(it, onTabSelected) }

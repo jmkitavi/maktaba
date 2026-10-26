@@ -144,6 +144,9 @@ class SettingsReportContentTest {
                                 ReportUiState(
                                     libraryName = "Rowan’s Reading Room",
                                     ownerDisplayName = "Rowan Ellis",
+                                    reason = LibraryReportReason.INAPPROPRIATE_NAME.takeIf {
+                                        reference != "companion-41"
+                                    },
                                     step = when (reference) {
                                         "companion-42" -> ReportStep.REVIEW
                                         "companion-43" -> ReportStep.SUCCESS

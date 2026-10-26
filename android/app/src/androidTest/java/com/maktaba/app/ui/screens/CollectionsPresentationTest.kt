@@ -145,4 +145,45 @@ class CollectionsPresentationTest {
         compose.onNodeWithText("No titles selected yet").assertIsDisplayed()
         compose.onNodeWithText("All selected titles are hidden").assertDoesNotExist()
     }
+
+    @Test
+    fun emptyCompanionPanelDoesNotAppearForNonemptyCollections() {
+        val populated = androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            BookHavenTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    CollectionsYoursContent(
+                        collections = if (populated.value)
+                            listOf(CustomCollection("list", "Weekend", emptyList(), false)) else emptyList(),
+                        collectionsState = LoadState.Ready(Unit),
+                        settings = LoadState.Ready(LibrarySharingSettings()), savedCount = 0,
+                        onWishlist = {}, onCollection = {}, onCreate = {}, onSharing = {}, onRetry = {})
+                }
+            }
+        }
+        val copy = "Grow your books into little collections — a shelf for the book club, one for the ones you'll never lend."
+        compose.onNodeWithText(copy).assertIsDisplayed()
+        compose.onNodeWithText("Make room for your next reading list.").assertDoesNotExist()
+        compose.runOnIdle { populated.value = true }
+        compose.onNodeWithText(copy).assertDoesNotExist()
+        compose.onNodeWithText("Weekend").assertIsDisplayed()
+    }
+
+    @Test
+    fun oneHiddenTitleUsesCatalogueIdentityRegardlessOfCandidatePosition() {
+        compose.setContent {
+            BookHavenTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    LibrarySharingContent(
+                        LibrarySharingSettings(libraryName = "Shared shelf", libraryShared = true,
+                            hiddenCatalogIds = setOf("paper-garden")),
+                        listOf(book("winterlight", "A Room Full of Winter Light"),
+                            book("paper-garden", "The Paper Garden")),
+                        onSave = { _, _ -> }, onHide = { _, _ -> }, initialHiddenExpanded = true)
+                }
+            }
+        }
+        compose.onNodeWithTag("hidden-title-paper-garden").assertIsOn()
+        compose.onNodeWithTag("hidden-title-winterlight").assertIsOff()
+    }
 }

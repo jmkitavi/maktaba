@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,13 +38,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
@@ -52,7 +61,6 @@ import androidx.navigation.NavHostController
 import com.maktaba.app.data.LibraryRepository
 import com.maktaba.app.R
 import com.maktaba.app.data.NotificationItem
-import com.maktaba.app.ui.components.LoadingState
 import com.maktaba.app.ui.components.MaktabaScaffold
 import com.maktaba.app.ui.components.PrimaryButton
 import com.maktaba.app.ui.components.ScreenTopBar
@@ -178,7 +186,7 @@ fun NotificationsContent(
                 }
             }
             when (status) {
-                InboxStatus.LOADING -> LoadingState("Loading your notifications")
+                InboxStatus.LOADING -> NotificationLoadingState()
                 InboxStatus.ERROR -> Column(
                     Modifier.fillMaxWidth().padding(spacing.gutter),
                     verticalArrangement = Arrangement.spacedBy(spacing.md)
@@ -186,7 +194,7 @@ fun NotificationsContent(
                     Spacer(Modifier.height(24.dp))
                     Image(painterResource(R.drawable.illus_home_icon), null, contentScale = ContentScale.Fit,
                         modifier = Modifier.align(Alignment.CenterHorizontally).width(150.dp).height(100.dp))
-                    LoanIntro("Could Not Load Notifications", "Your updates could not be loaded.")
+                    LoanIntro("Couldn’t load this screen.", "Your updates could not be loaded.")
                     HandoffNotice(error ?: "Please try again.", error = true)
                     PrimaryButton("Try Again", onClick = onRetry)
                 }
@@ -198,7 +206,7 @@ fun NotificationsContent(
                         modifier = Modifier.width(150.dp).height(100.dp))
                     Spacer(Modifier.height(20.dp))
                     LoanIntro(
-                        title = if (status == InboxStatus.NO_UNREAD) "No unread notifications" else "You Are All Caught Up",
+                        title = if (status == InboxStatus.NO_UNREAD) "No unread notifications" else "A little quiet here.",
                         message = if (status == InboxStatus.NO_UNREAD) "Switch to All to see your earlier updates."
                         else "Reminders about due dates and returns will arrive here."
                     )
@@ -225,6 +233,46 @@ fun NotificationsContent(
             }
         }
         MaktabaBottomNav(selected = null, onSelect = onTab)
+        }
+    }
+}
+
+@Composable
+private fun NotificationLoadingState() {
+    val colors = MaktabaTheme.colors
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(top = 23.dp, bottom = 24.dp)
+            .semantics {
+                contentDescription = "Loading your notifications"
+                liveRegion = LiveRegionMode.Polite
+                progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+            }
+    ) {
+        Text(
+            "Loading…",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = 25.sp, lineHeight = 30.5.sp, fontWeight = FontWeight.Normal,
+                lineHeightStyle = LoanLineHeightStyle
+            ),
+            color = colors.ink,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Fetching your updates.",
+            style = MaterialTheme.typography.bodySmall.copy(
+                lineHeight = 20.4.sp, lineHeightStyle = LoanLineHeightStyle
+            ),
+            color = colors.inkMuted
+        )
+        repeat(3) {
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier.fillMaxWidth().height(77.dp).clip(RoundedCornerShape(9.dp))
+                    .background(Brush.horizontalGradient(listOf(colors.surfaceAlt, colors.surface, colors.surfaceAlt)))
+                    .testTag("notification-loading-placeholder")
+            )
         }
     }
 }

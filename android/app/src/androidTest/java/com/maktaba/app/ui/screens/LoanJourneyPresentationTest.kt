@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -152,9 +153,48 @@ class LoanJourneyPresentationTest {
                     null, null, now, {}, {}, { retries++ }, {})
             }
         }
-        compose.onNodeWithText("You Are All Caught Up").assertDoesNotExist()
+        compose.onNodeWithText("A little quiet here.").assertDoesNotExist()
+        compose.onNodeWithText("Couldn’t load this screen.").assertIsDisplayed()
+        compose.onNodeWithText("Connection unavailable").assertIsDisplayed()
         compose.onNodeWithText("Try Again").performClick()
         assertEquals(1, retries)
+    }
+
+    @Test
+    fun inboxSkeletonOnlyAppearsWhileLoadingAndYieldsToFailureOrResults() {
+        val item = NotificationItem("update", "copy", title = "Return confirmed", message = "Your book is home.")
+        val items = mutableStateOf(listOf(item))
+        val loaded = mutableStateOf(false)
+        val error = mutableStateOf<String?>(null)
+        var opens = 0
+        compose.setContent {
+            BookHavenTheme {
+                NotificationsContent(items.value, loaded.value, error.value, InboxFilter.ALL,
+                    null, null, now, {}, {}, {}, { opens++ })
+            }
+        }
+        compose.onNodeWithText("Loading…").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Loading your notifications").assertIsDisplayed()
+        compose.onAllNodesWithTag("notification-loading-placeholder").assertCountEquals(3)
+        compose.onNodeWithText("Return confirmed").assertDoesNotExist()
+        compose.onNodeWithText("Finish loading preview").assertDoesNotExist()
+        assertEquals(0, opens)
+
+        compose.runOnIdle { error.value = "Listener disconnected" }
+        compose.onAllNodesWithTag("notification-loading-placeholder").assertCountEquals(0)
+        compose.onNodeWithText("Loading…").assertDoesNotExist()
+        compose.onNodeWithText("Listener disconnected").assertIsDisplayed()
+        compose.onNodeWithText("Couldn’t load this screen.").assertIsDisplayed()
+
+        compose.runOnIdle { error.value = null; loaded.value = true }
+        compose.onAllNodesWithTag("notification-loading-placeholder").assertCountEquals(0)
+        compose.onNodeWithText("Return confirmed").assertIsDisplayed().performClick()
+        assertEquals(1, opens)
+
+        compose.runOnIdle { items.value = emptyList() }
+        compose.onNodeWithText("A little quiet here.").assertIsDisplayed()
+        compose.onNodeWithText("Loading…").assertDoesNotExist()
+        compose.onNodeWithText("Couldn’t load this screen.").assertDoesNotExist()
     }
 
     @Test

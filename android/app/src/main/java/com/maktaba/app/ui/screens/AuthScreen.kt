@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.FirebaseException
@@ -127,11 +128,10 @@ internal fun AuthContent(
     SoulAccountPage(state.page.title, onBack = { if (!state.loading) onBack() },
         headerArt = if (state.page == AuthPage.SIGN_IN || registering) R.drawable.illus_cup_books else R.drawable.illus_book_sprig) {
         if (state.page == AuthPage.RESET_SENT) {
-            Image(painterResource(R.drawable.illus_book_sprig), null,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).size(90.dp, 65.dp))
-            Text("Check your inbox.", style = MaterialTheme.typography.headlineMedium, color = colors.ink)
-            Text("If an account uses ${state.email.trim()}, you'll receive instructions to reset its password.",
-                color = colors.inkMuted, style = MaterialTheme.typography.bodySmall)
+            SoulFeedbackHeader(
+                R.drawable.illus_book_sprig, "Check your inbox.",
+                "If an account uses ${state.email.trim()}, you'll receive instructions to reset its password."
+            )
             SoulNotice("Reset instructions requested. Your password has not changed.")
             PrimaryButton("Back to sign in", onClick = { onPage(AuthPage.SIGN_IN) })
         } else {
@@ -170,6 +170,20 @@ internal fun AuthContent(
             if (!reset && !registering) OutlinedPillButton("Forgot password?", enabled = !state.loading,
                 onClick = { onPage(AuthPage.RESET) })
         }
+    }
+}
+
+@Composable
+internal fun SoulFeedbackHeader(illustration: Int, title: String, body: String) {
+    val colors = MaktabaTheme.colors
+    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(painterResource(illustration), null,
+            modifier = Modifier.padding(vertical = 20.dp).size(150.dp, 100.dp))
+        Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.ink,
+            textAlign = TextAlign.Center, modifier = Modifier.padding(vertical = 12.dp))
+        Text(body, color = colors.inkMuted, style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center)
     }
 }
 

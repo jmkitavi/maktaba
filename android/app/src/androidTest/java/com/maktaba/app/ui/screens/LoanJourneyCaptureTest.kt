@@ -12,10 +12,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -129,11 +131,21 @@ class LoanJourneyCaptureTest {
                 compose.waitForIdle()
                 if (next.page == Page.INBOX && !next.loaded && next.error == null) {
                     compose.onNodeWithContentDescription("Loading your notifications").assertIsDisplayed()
+                    compose.onNodeWithText("Loading…").assertIsDisplayed()
+                    compose.onAllNodesWithTag("notification-loading-placeholder").assertCountEquals(3)
                 } else {
                     compose.onAllNodesWithText(next.expected).onFirst().assertIsDisplayed()
                 }
                 if (next.page == Page.RETURN) {
                     compose.onNodeWithContentDescription("Back").assertIsDisplayed().assertHasClickAction()
+                }
+                if (next.page == Page.BOOK) {
+                    compose.onNodeWithText(
+                        "Stories from the edges of a small lakeside town, where ordinary encounters " +
+                            "leave lasting ripples. Tender, curious portraits of people finding their way."
+                    ).assertExists()
+                    compose.onNodeWithText("2020").assertExists()
+                    compose.onNodeWithText("256").assertExists()
                 }
                 if (next.stage == ReturnStage.WAITING && next.page == Page.RETURN) {
                     compose.onNodeWithText("Waiting for Confirmation").assertIsNotEnabled()
@@ -200,7 +212,16 @@ class LoanJourneyCaptureTest {
             Page.BOOK -> {
                 val notification = JourneyFixtures.notifications.first { it.type == "return_confirmed" }
                 val returnedCopies = books.map {
-                    if (it.catalogId == book.catalogId) it.copy(status = BookStatus.OWNED) else it
+                    if (it.catalogId == book.catalogId) {
+                        // Immutable mockups.js editions.stillwater metadata for companion-52.
+                        it.copy(
+                            status = BookStatus.OWNED,
+                            published = "2020",
+                            pages = 256,
+                            description = "Stories from the edges of a small lakeside town, where ordinary " +
+                                "encounters leave lasting ripples. Tender, curious portraits of people finding their way."
+                        )
+                    } else it
                 }
                 BookDetailContent(
                     state = LibraryBookDetailState(
@@ -279,11 +300,11 @@ class LoanJourneyCaptureTest {
         Scenario("companion-53", Page.REMINDER, notificationType = "lender_overdue", expected = "This One Is Overdue"),
         Scenario("companion-49-unread", Page.INBOX, filter = InboxFilter.UNREAD, expected = "A gentle reminder"),
         Scenario("companion-49-loading", Page.INBOX, loaded = false, empty = true, expected = ""),
-        Scenario("companion-49-empty", Page.INBOX, empty = true, expected = "You Are All Caught Up"),
+        Scenario("companion-49-empty", Page.INBOX, empty = true, expected = "A little quiet here."),
         Scenario("companion-49-no-unread", Page.INBOX, filter = InboxFilter.UNREAD, allRead = true,
             expected = "No unread notifications"),
         Scenario("companion-49-error", Page.INBOX, loaded = false, error = "Connection unavailable",
-            expected = "Could Not Load Notifications"),
+            expected = "Couldn’t load this screen."),
         Scenario("companion-49-unavailable", Page.INBOX,
             actionError = "This notification's destination is no longer available.",
             expected = "This notification's destination is no longer available."),
@@ -305,9 +326,9 @@ class LoanJourneyCaptureTest {
             error = "We could not update this return. Try again.", expected = "Confirm the Return"),
         Scenario("return-confirm-submitting", Page.RETURN, fixtureId = "small-things", stage = ReturnStage.CONFIRM,
             submitting = true, expected = "Confirm the Return"),
-        Scenario("inbox-empty", Page.INBOX, empty = true, expected = "You Are All Caught Up"),
+        Scenario("inbox-empty", Page.INBOX, empty = true, expected = "A little quiet here."),
         Scenario("inbox-error", Page.INBOX, loaded = false, error = "Connection unavailable",
-            expected = "Could Not Load Notifications"),
+            expected = "Couldn’t load this screen."),
         Scenario("inbox-loading", Page.INBOX, loaded = false, empty = true, expected = "")
     )
 }

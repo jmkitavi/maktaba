@@ -1,17 +1,18 @@
 package com.maktaba.app.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -131,14 +132,21 @@ internal fun EditOwnedBookContent(
                 Text("You have a draft for ${book.title}. Leaving now discards this draft, not the book.",
                     color = colors.inkMuted, style = MaterialTheme.typography.bodySmall)
                 PrimaryButton("Keep editing", onClick = onKeepEditing)
-                DestructiveButton("Discard draft", onClick = onDiscard)
+                OutlinedButton(
+                    onClick = onDiscard,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = MaktabaShapes.button,
+                    border = BorderStroke(1.dp, colors.terraAction),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = colors.terracotta, contentColor = colors.terraAction
+                    )
+                ) {
+                    Text("Discard draft", style = MaterialTheme.typography.labelLarge)
+                }
             }
             BookEditPage.SAVED -> {
-                Image(painterResource(R.drawable.illus_cup_books), null,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 24.dp).size(150.dp, 110.dp))
-                Text("A few details, made yours.", style = MaterialTheme.typography.headlineMedium, color = colors.ink)
-                Text("${draft.title.trim()} is updated in your library.", color = colors.inkMuted,
-                    style = MaterialTheme.typography.bodySmall)
+                SoulFeedbackHeader(R.drawable.illus_cup_books, "A few details, made yours.",
+                    "${draft.title.trim()} is updated in your library.")
                 SoulNotice("These details are private to your copy. Shared catalogue details, loans, ownership and availability are unchanged.")
                 PrimaryButton("View the edited book", onClick = onDiscard)
             }
