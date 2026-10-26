@@ -212,8 +212,9 @@ class CoreJourneyCaptureTest {
                 composeRule.onNodeWithText(
                     if (reference == "companion-67") "$title · Demo edition" else title
                 ).assertIsDisplayed()
+                val coverWidth = minOf((JourneyCapture.width - 40) / 2f, 200f).dp
                 composeRule.onNodeWithTag("cover:$catalogId", useUnmergedTree = true)
-                    .assertWidthIsEqualTo(136.dp).assertHeightIsEqualTo(204.dp)
+                    .assertWidthIsEqualTo(coverWidth).assertHeightIsEqualTo(coverWidth * 1.5f)
                 composeRule.onNodeWithText("BOOK HAVEN").assertDoesNotExist()
                 composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
                 composeRule.onNodeWithText("Edit book details").assertDoesNotExist()

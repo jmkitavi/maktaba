@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -300,14 +301,19 @@ fun BookDetailContent(
                 ) {
                     DetailHero {
                         Spacer(Modifier.height(12.dp))
-                        Box(Modifier.size(width = 136.dp, height = 204.dp),
+                        BoxWithConstraints(Modifier.fillMaxWidth(),
                             contentAlignment = Alignment.Center) {
-                            BookCoverImage(
-                                book = book, contentScale = ContentScale.Fit, decorative = true,
-                                backgroundColor = Color.Transparent,
-                                modifier = Modifier.width(136.dp).heightIn(max = 204.dp)
-                                    .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
-                            )
+                            val coverWidth = minOf(maxWidth / 2, 200.dp)
+                            val coverHeight = coverWidth * 1.5f
+                            Box(Modifier.size(width = coverWidth, height = coverHeight),
+                                contentAlignment = Alignment.Center) {
+                                BookCoverImage(
+                                    book = book, contentScale = ContentScale.Fit, decorative = true,
+                                    backgroundColor = Color.Transparent,
+                                    modifier = Modifier.width(coverWidth).heightIn(max = coverHeight)
+                                        .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
+                                )
+                            }
                         }
                         Spacer(Modifier.height(11.dp))
                         Text(
