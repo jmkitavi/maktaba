@@ -213,7 +213,7 @@ class CoreJourneyCaptureTest {
                     if (reference == "companion-67") "$title · Demo edition" else title
                 ).assertIsDisplayed()
                 composeRule.onNodeWithTag("cover:$catalogId", useUnmergedTree = true)
-                    .assertWidthIsEqualTo(124.dp).assertHeightIsEqualTo(186.dp)
+                    .assertWidthIsEqualTo(136.dp).assertHeightIsEqualTo(204.dp)
                 composeRule.onNodeWithText("BOOK HAVEN").assertDoesNotExist()
                 composeRule.onNodeWithContentDescription("Edit book").assertDoesNotExist()
                 composeRule.onNodeWithText("Edit book details").assertDoesNotExist()

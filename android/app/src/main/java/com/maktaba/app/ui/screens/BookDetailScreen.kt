@@ -299,12 +299,13 @@ fun BookDetailContent(
                         .padding(horizontal = spacing.gutter)
                 ) {
                     DetailHero {
-                        Box(Modifier.size(width = 124.dp, height = 186.dp),
+                        Spacer(Modifier.height(12.dp))
+                        Box(Modifier.size(width = 136.dp, height = 204.dp),
                             contentAlignment = Alignment.Center) {
                             BookCoverImage(
                                 book = book, contentScale = ContentScale.Fit, decorative = true,
                                 backgroundColor = Color.Transparent,
-                                modifier = Modifier.width(124.dp).heightIn(max = 186.dp)
+                                modifier = Modifier.width(136.dp).heightIn(max = 204.dp)
                                     .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
                             )
                         }
