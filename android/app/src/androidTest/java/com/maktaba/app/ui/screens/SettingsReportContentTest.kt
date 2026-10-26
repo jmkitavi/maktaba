@@ -37,6 +37,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
+import kotlin.math.abs
 
 class SettingsReportContentTest {
     @get:Rule val compose = createComposeRule()
@@ -72,6 +73,42 @@ class SettingsReportContentTest {
             assertEquals(AppAppearance.LIGHT, DevicePreferences.appearance)
         } finally {
             DevicePreferences.setAppearance(context, original)
+        }
+    }
+
+    @Test
+    fun headerWashContinuesBehindTheStatusBarInBothThemes() {
+        JourneyCapture.prepareWindow()
+        var dark by mutableStateOf(false)
+        compose.setContent {
+            BookHavenTheme(darkTheme = dark) {
+                SettingsContent(SettingsUiState(), {}, {}, {})
+            }
+        }
+        for (darkTheme in listOf(false, true)) {
+            compose.runOnIdle { dark = darkTheme }
+            compose.waitForIdle()
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            var statusBarBottom = 0
+            instrumentation.runOnMainSync {
+                val activity = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).single()
+                statusBarBottom = checkNotNull(ViewCompat.getRootWindowInsets(activity.window.decorView))
+                    .getInsets(WindowInsetsCompat.Type.statusBars()).top
+            }
+            val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+            try {
+                assertTrue("The status bar must be visible", statusBarBottom > 2)
+                val x = screenshot.width / 3
+                val above = androidx.compose.ui.graphics.Color(screenshot.getPixel(x, statusBarBottom - 2))
+                val below = androidx.compose.ui.graphics.Color(screenshot.getPixel(x, statusBarBottom + 2))
+                val seam = maxOf(abs(above.red - below.red), abs(above.green - below.green),
+                    abs(above.blue - below.blue)) * 255
+                assertTrue("Header wash must continue across the status bar (dark=$darkTheme, seam=$seam)",
+                    seam <= 3)
+            } finally {
+                screenshot.recycle()
+            }
         }
     }
 
