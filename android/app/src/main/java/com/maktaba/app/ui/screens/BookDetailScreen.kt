@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,6 +57,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -299,11 +299,15 @@ fun BookDetailContent(
                         .padding(horizontal = spacing.gutter)
                 ) {
                     DetailHero {
-                        BookCoverImage(
-                            book = book, contentScale = ContentScale.Fit, decorative = true,
-                            modifier = Modifier.width(124.dp).aspectRatio(2f / 3f)
-                                .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
-                        )
+                        Box(Modifier.size(width = 124.dp, height = 186.dp),
+                            contentAlignment = Alignment.Center) {
+                            BookCoverImage(
+                                book = book, contentScale = ContentScale.Fit, decorative = true,
+                                backgroundColor = Color.Transparent,
+                                modifier = Modifier.width(124.dp).heightIn(max = 186.dp)
+                                    .shadow(8.dp, MaktabaShapes.cover).clip(MaktabaShapes.cover)
+                            )
+                        }
                         Spacer(Modifier.height(11.dp))
                         Text(
                             book.title, style = MaterialTheme.typography.headlineSmall.copy(

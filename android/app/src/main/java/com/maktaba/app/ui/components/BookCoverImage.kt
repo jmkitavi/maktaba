@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -41,7 +42,8 @@ fun BookCoverImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Fit,
     decorative: Boolean = false,
-    plainFallback: Boolean = false
+    plainFallback: Boolean = false,
+    backgroundColor: Color = MaktabaTheme.colors.surfaceAlt
 ) {
     val accessible = modifier.clip(MaktabaShapes.cover).clearAndSetSemantics {
         testTag = "cover:${book.catalogId}"
@@ -54,7 +56,7 @@ fun BookCoverImage(
             model = book.coverUrl,
             contentDescription = null,
             contentScale = contentScale,
-            modifier = accessible.background(MaktabaTheme.colors.surfaceAlt),
+            modifier = accessible.background(backgroundColor),
             loading = { GeneratedBookJacket(book, Modifier.fillMaxSize(), plainFallback) },
             error = { GeneratedBookJacket(book, Modifier.fillMaxSize(), plainFallback) }
         )

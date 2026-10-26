@@ -1,5 +1,6 @@
 package com.maktaba.app.ui.screens
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
@@ -17,6 +18,8 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -40,6 +43,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 import kotlin.math.roundToInt
 
 class CoreLibraryContentTest {
@@ -51,6 +55,52 @@ class CoreLibraryContentTest {
         author = "A Test Author", coverRes = 0, status = BookStatus.OWNED,
         format = BookFormat.PHYSICAL, genre = "Essays"
     )
+
+    @Test
+    fun detailsFitTheCoverItselfWithoutAPaddedPortraitBacking() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val image = File.createTempFile("detail-cover-", ".png", context.cacheDir)
+        try {
+            val bitmap = Bitmap.createBitmap(180, 120, Bitmap.Config.ARGB_8888)
+            try {
+                bitmap.eraseColor(android.graphics.Color.rgb(120, 80, 40))
+                image.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            } finally {
+                bitmap.recycle()
+            }
+            val book = catalogueBook.copy(coverUrl = image.toURI().toString())
+            runBlocking {
+                val result = context.imageLoader.execute(
+                    ImageRequest.Builder(context).data(book.coverUrl).size(Size.ORIGINAL)
+                        .allowHardware(false).build()
+                )
+                assertTrue(result is SuccessResult)
+            }
+            composeRule.setContent {
+                BookHavenTheme {
+                    BookDetailContent(
+                        state = LibraryBookDetailState(
+                            selection = LibraryDetailSelection(book, privateCopy = false),
+                            loaded = true, savedLoaded = true
+                        ),
+                        onBack = {}, onRetry = {}, onSave = {}, onLend = {},
+                        onLoan = {}, onRemove = {}, onAddToCollection = {},
+                        onToggleHidden = {}, onManageSharing = {}
+                    )
+                }
+            }
+            composeRule.waitUntil(10_000) {
+                composeRule.onAllNodesWithTag("cover:${book.catalogId}", useUnmergedTree = true)
+                    .fetchSemanticsNodes().singleOrNull()?.size?.let { it.height < it.width } == true
+            }
+            val cover = composeRule.onNodeWithTag("cover:${book.catalogId}", useUnmergedTree = true)
+                .assertIsDisplayed().fetchSemanticsNode()
+            assertEquals("Shadow bounds must fit the intact artwork, not a padded portrait card.",
+                cover.size.width / 1.5f, cover.size.height.toFloat(), 1f)
+        } finally {
+            check(image.delete())
+        }
+    }
 
     @Test
     fun catalogueDetailsCanSaveAndAddReferenceWithoutPrivateCopyActions() {
