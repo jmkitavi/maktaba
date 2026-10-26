@@ -268,6 +268,12 @@ object LibraryRepository {
         books.find { it.id == id } ?: pendingBorrowBooks[id] ?:
             maktabaCollection.find { it.catalogId == id }
 
+    fun canonicalBookForCopy(copyId: String): Book? {
+        val copy = books.find { it.id == copyId } ?: return null
+        return maktabaCollection.find { it.catalogId == copy.catalogId }
+            ?.copy(id = copy.id, status = copy.status)
+    }
+
     fun activeLoanFor(bookId: String): ActiveLoan? =
         activeLoans.find { it.bookId == bookId } ?: pendingBorrowLoans[bookId]
 

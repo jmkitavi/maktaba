@@ -137,7 +137,7 @@ fun ShareLendingCodeScreen(
         )
         return
     }
-    val book = bookSnapshot ?: LibraryRepository.bookById(issued.copyId)
+    val book = bookSnapshot ?: LibraryRepository.canonicalBookForCopy(issued.copyId)
     if (book == null) {
         ShareInviteBookStatusContent(
             libraryLoaded = LibraryRepository.hasLoadedLibrary,
