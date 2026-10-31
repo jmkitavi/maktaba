@@ -21,7 +21,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.test.platform.app.InstrumentationRegistry
 import coil.imageLoader
@@ -94,6 +96,7 @@ class LoanJourneyCaptureTest {
             val catalogue = JourneyFixtures.catalogue.map { original ->
                 original.copy(coverUrl = JourneyFixtures.coverUrl(original.catalogId))
             }
+            val jacketRatios = mutableMapOf<String, Float>()
             listOf("distant-shores", "small-things", "stillwater").forEach { id ->
                 val book = fixtures.book(id)
                 require(book.coverUrl.startsWith("android.resource://")) {
@@ -104,6 +107,8 @@ class LoanJourneyCaptureTest {
                         ImageRequest.Builder(context).data(book.coverUrl).build()
                     )
                     assertTrue("Original jacket did not decode: $id", result is SuccessResult)
+                    val drawable = (result as SuccessResult).drawable
+                    jacketRatios[book.id] = drawable.intrinsicWidth.toFloat() / drawable.intrinsicHeight
                 }
             }
             assertEquals("Letters from Distant Shores", fixtures.book("distant-shores").title)
@@ -153,6 +158,34 @@ class LoanJourneyCaptureTest {
                 if (next.reminder.nextAllowedAt != null) {
                     compose.onNodeWithText("Try Sending Again").assertIsNotEnabled()
                 }
+                if (next.page == Page.ACTIVE) {
+                    val expectedRatio = jacketRatios.getValue(fixtures.book(next.fixtureId).id)
+                    compose.waitUntil(5_000) {
+                        val cover = compose.onNodeWithTag("active_loan_cover", useUnmergedTree = true).fetchSemanticsNode()
+                        kotlin.math.abs(cover.size.width.toFloat() / cover.size.height - expectedRatio) < 0.02f
+                    }
+                    val viewport = compose.onRoot().fetchSemanticsNode()
+                    val cover = compose.onNodeWithTag("active_loan_cover", useUnmergedTree = true).fetchSemanticsNode()
+                    val art = compose.onNodeWithTag("active_loan_art", useUnmergedTree = true).fetchSemanticsNode()
+                    assertEquals("Active Loan jacket must be centered",
+                        viewport.positionInRoot.x + viewport.size.width / 2f,
+                        cover.positionInRoot.x + cover.size.width / 2f, 1f)
+                    assertEquals("Active Loan vignette must span the native viewport", viewport.size.width, art.size.width)
+                    if (fontScale == 1f &&
+                        kotlin.math.abs(viewport.size.width / context.resources.displayMetrics.density - 360f) <= 1f &&
+                        viewport.size.height / context.resources.displayMetrics.density >= 760f
+                    ) {
+                        val labels = if (fixtureLoan(fixtures.book(next.fixtureId)).isLender)
+                            listOf("Send a Reminder", "Start a Return") else listOf("Start a Return")
+                        labels.forEach { label ->
+                            val action = compose.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode()
+                            assertTrue("$label must retain a 48dp touch target",
+                                action.size.height / context.resources.displayMetrics.density >= 47.5f)
+                            assertEquals("$label must be fully visible without scrolling",
+                                action.size.height.toFloat(), action.boundsInRoot.height, 1f)
+                        }
+                    }
+                }
                 val image = compose.onRoot().captureToImage()
                 requestedWidth?.let { width ->
                     assertEquals(
@@ -169,6 +202,24 @@ class LoanJourneyCaptureTest {
                 JourneyCapture.recordGeometry(
                     compose, next.ref, theme, requestedWidth ?: JourneyCapture.width, fontScale
                 )
+                if (next.page == Page.ACTIVE) {
+                    val labels = if (fixtureLoan(fixtures.book(next.fixtureId)).isLender)
+                        listOf("Send a Reminder", "Start a Return") else listOf("Start a Return")
+                    labels.forEach { label ->
+                        compose.onNodeWithText(label).performScrollTo().assertIsDisplayed()
+                    }
+                    compose.onNodeWithTag("active_loan_art", useUnmergedTree = true)
+                        .performScrollTo().assertIsDisplayed()
+                    val scrolledImage = compose.onRoot().captureToImage()
+                    val scrolledDestination = File(context.filesDir, "journey-captures/${next.ref}-scrolled-$theme.png")
+                    scrolledDestination.outputStream().use { output ->
+                        assertTrue(scrolledImage.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output))
+                    }
+                    assertTrue("Scrolled capture not persisted: ${next.ref}", scrolledDestination.length() > 0L)
+                    JourneyCapture.recordGeometry(
+                        compose, "${next.ref}-scrolled", theme, requestedWidth ?: JourneyCapture.width, fontScale
+                    )
+                }
             }
         } finally {
             Locale.setDefault(previousLocale)
