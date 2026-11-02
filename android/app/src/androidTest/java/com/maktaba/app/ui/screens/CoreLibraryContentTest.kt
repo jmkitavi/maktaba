@@ -40,6 +40,7 @@ import com.maktaba.app.data.BookStatus
 import com.maktaba.app.journeys.JourneyCapture
 import com.maktaba.app.journeys.JourneyFixtures
 import com.maktaba.app.ui.theme.BookHavenTheme
+import com.maktaba.app.ui.components.BookCoverCard
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -57,6 +58,39 @@ class CoreLibraryContentTest {
         author = "A Test Author", coverRes = 0, status = BookStatus.OWNED,
         format = BookFormat.PHYSICAL, genre = "Essays"
     )
+
+    @Test
+    fun shelfCardsKeepAvailabilityButNotLoanTimingInTextOrAccessibility() {
+        val loans = JourneyFixtures.loans.take(2)
+        composeRule.setContent {
+            BookHavenTheme {
+                androidx.compose.foundation.layout.Column {
+                    loans.forEach { loan ->
+                        BookCoverCard(
+                            book = catalogueBook.copy(
+                                id = loan.bookId,
+                                status = if (loan.isLender) BookStatus.LENT_OUT else BookStatus.BORROWED
+                            ),
+                            loan = loan,
+                            modifier = Modifier.width(140.dp)
+                        )
+                    }
+                }
+            }
+        }
+        assertTrue(composeRule.onAllNodes(
+            androidx.compose.ui.test.hasText("due", substring = true, ignoreCase = true),
+            useUnmergedTree = true
+        ).fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodes(
+            hasContentDescription("due", substring = true, ignoreCase = true),
+            useUnmergedTree = true
+        ).fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithText("Lent out", ignoreCase = true, useUnmergedTree = true).assertExists()
+        assertEquals(2, composeRule.onAllNodes(
+            androidx.compose.ui.test.hasText("Physical edition"), useUnmergedTree = true
+        ).fetchSemanticsNodes().size)
+    }
 
     @Test
     fun detailBannerHasTransparentLeafGapsWithoutLosingFineVines() {

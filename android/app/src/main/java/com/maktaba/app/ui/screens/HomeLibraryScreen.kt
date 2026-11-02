@@ -385,7 +385,6 @@ fun HomeLibraryContent(
                             BookCoverCard(
                                 book = book,
                                 loan = loans.firstOrNull { it.bookId == book.id },
-                                clock = clock,
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = { onBook(book) }
                             )

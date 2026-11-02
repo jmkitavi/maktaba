@@ -4,19 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,32 +30,22 @@ import com.maktaba.app.data.BookFormat
 import com.maktaba.app.data.BookStatus
 import com.maktaba.app.ui.theme.MaktabaShapes
 import com.maktaba.app.ui.theme.MaktabaTheme
-import com.maktaba.app.util.LoanTimeFormatter
-import com.maktaba.app.util.LoanUrgency
-import java.time.Clock
 
 private val ShelfLineHeight = LineHeightStyle(
     alignment = LineHeightStyle.Alignment.Proportional,
     trim = LineHeightStyle.Trim.None
 )
 
-/**
- * A shelf card. It now carries loan state, because the whole point of the product is
- * knowing where your books are - and that was previously invisible until you tapped in.
- */
 @Composable
 fun BookCoverCard(
     book: Book,
     modifier: Modifier = Modifier,
     loan: ActiveLoan? = null,
-    clock: Clock = Clock.systemDefaultZone(),
     onClick: (() -> Unit)? = null
 ) {
     val colors = MaktabaTheme.colors
     val titleSize = if (LocalConfiguration.current.screenWidthDp <= 330) 14.sp else 13.sp
-    val urgency = loan?.let { LoanTimeFormatter.urgency(it.dueAt, clock) } ?: LoanUrgency.UNKNOWN
     val visuals = statusVisuals(colors, book.status)
-    val dueLine = loan?.let { LoanTimeFormatter.shortRemaining(it.dueAt, clock) }
     val counterparty = loan?.counterpartyName?.takeIf { it.isNotBlank() }
 
     val description = buildString {
@@ -76,10 +57,6 @@ fun BookCoverCard(
         if (counterparty != null) {
             append(if (book.status == BookStatus.LENT_OUT) ", to " else ", from ")
             append(counterparty)
-        }
-        if (dueLine != null) {
-            append(". ")
-            append(dueLine)
         }
         if (book.format == BookFormat.DIGITAL) append(". Digital edition")
     }
@@ -135,32 +112,21 @@ fun BookCoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Row(Modifier.fillMaxWidth().padding(top = 5.dp)) {
-                if (dueLine != null) {
-                    Icon(
-                        if (urgency == LoanUrgency.OVERDUE) Icons.Outlined.WarningAmber else Icons.Outlined.Schedule,
-                        contentDescription = null,
-                        tint = urgencyColor(urgency),
-                        modifier = Modifier.padding(top = 2.dp).size(10.dp)
-                    )
-                    Spacer(Modifier.width(2.dp))
-                }
-                Text(
-                    dueLine ?: when (book.format) {
-                        BookFormat.DIGITAL -> "Digital edition"
-                        BookFormat.PHYSICAL -> "Physical edition"
-                        BookFormat.UNKNOWN -> "Edition not specified"
-                    },
-                    color = if (dueLine != null) urgencyColor(urgency) else colors.inkMuted,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = ShelfLineHeight
-                    ),
-                    modifier = Modifier.weight(1f),
-                    minLines = 2,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                when (book.format) {
+                    BookFormat.DIGITAL -> "Digital edition"
+                    BookFormat.PHYSICAL -> "Physical edition"
+                    BookFormat.UNKNOWN -> "Edition not specified"
+                },
+                color = colors.inkMuted,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = ShelfLineHeight
+                ),
+                modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
