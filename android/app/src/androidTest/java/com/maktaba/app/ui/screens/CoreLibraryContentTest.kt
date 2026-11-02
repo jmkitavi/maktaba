@@ -87,9 +87,7 @@ class CoreLibraryContentTest {
             useUnmergedTree = true
         ).fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithText("Lent out", ignoreCase = true, useUnmergedTree = true).assertExists()
-        assertEquals(2, composeRule.onAllNodes(
-            androidx.compose.ui.test.hasText("Physical edition"), useUnmergedTree = true
-        ).fetchSemanticsNodes().size)
+        composeRule.onNodeWithText("Physical edition", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

@@ -112,21 +112,19 @@ fun BookCoverCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                when (book.format) {
-                    BookFormat.DIGITAL -> "Digital edition"
-                    BookFormat.PHYSICAL -> "Physical edition"
-                    BookFormat.UNKNOWN -> "Edition not specified"
-                },
-                color = colors.inkMuted,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = ShelfLineHeight
-                ),
-                modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
-                minLines = 2,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (book.format != BookFormat.PHYSICAL) {
+                Text(
+                    if (book.format == BookFormat.DIGITAL) "Digital edition" else "Edition not specified",
+                    color = colors.inkMuted,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 10.sp, lineHeight = 15.sp, lineHeightStyle = ShelfLineHeight
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+                    minLines = 2,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
