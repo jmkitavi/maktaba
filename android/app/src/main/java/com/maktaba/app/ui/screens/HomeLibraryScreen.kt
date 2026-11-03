@@ -131,7 +131,7 @@ fun HomeLibraryContent(
     val colors = MaktabaTheme.colors
     val spacing = MaktabaTheme.spacing
     val narrowLayout = LocalConfiguration.current.screenWidthDp <= 339
-    val columns = if (narrowLayout) 2 else 3
+    val columns = if (narrowLayout || androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.2f) 2 else 3
     val gutter = if (narrowLayout) 16.dp else spacing.gutter
     val focusManager = LocalFocusManager.current
 

@@ -91,6 +91,36 @@ class CoreLibraryContentTest {
     }
 
     @Test
+    fun shelfStatusOverlaysTheJacketAndTheWholeCardStillOpensTheBook() {
+        var opened = false
+        composeRule.setContent {
+            BookHavenTheme {
+                BookCoverCard(
+                    book = catalogueBook,
+                    modifier = Modifier.width(110.dp),
+                    onClick = { opened = true }
+                )
+            }
+        }
+        val cover = composeRule.onNodeWithTag("cover:${catalogueBook.catalogId}", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val badge = composeRule.onNodeWithTag("shelf-status:${catalogueBook.id}", useUnmergedTree = true)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("The badge belongs inside the upper corner of the cover.",
+            badge.left >= cover.left && badge.right <= cover.right &&
+                badge.top >= cover.top && badge.bottom < cover.center.y)
+        val title = composeRule.onNode(
+            androidx.compose.ui.test.hasText(catalogueBook.title) and
+                !hasAnyAncestor(androidx.compose.ui.test.hasTestTag("cover:${catalogueBook.catalogId}")),
+            useUnmergedTree = true
+        )
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("The title must remain outside the artwork.", title.top >= cover.bottom)
+        composeRule.onNodeWithContentDescription("On my shelf", substring = true).performClick()
+        assertTrue(opened)
+    }
+
+    @Test
     fun detailBannerHasTransparentLeafGapsWithoutLosingFineVines() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val banner = requireNotNull(BitmapFactory.decodeResource(context.resources, R.drawable.illus_book_detail))
@@ -356,7 +386,7 @@ class CoreLibraryContentTest {
         ).assertIsDisplayed()
         val fabBounds = fullBounds(fab.fetchSemanticsNode())
         val navigationBounds = fullBounds(navigation.fetchSemanticsNode())
-        val expectedColumns = if (width <= 339) 2 else 3
+        val expectedColumns = if (width <= 339 || fontScale >= 1.2f) 2 else 3
         val gutterPx = ((if (width <= 339) 16 else 20) * deviceDensity).roundToInt().toFloat()
         val gapPx = ((if (width <= 339) 14 else 11) * deviceDensity).roundToInt().toFloat()
         val expectedCardWidth =

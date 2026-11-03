@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +19,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
@@ -81,14 +81,16 @@ fun BookCoverCard(
                     .fillMaxWidth()
                     .aspectRatio(2f / 3f)
             )
-        }
-        Box(Modifier.heightIn(min = 30.dp).padding(top = 7.dp, bottom = 4.dp)) {
+            Box(
+                Modifier.align(Alignment.TopStart).padding(4.dp)
+                    .testTag("shelf-status:${book.id}")
+            ) {
                 StatusPill(
-                    visuals = visuals,
+                    visuals = if (book.status == BookStatus.OWNED) visuals.copy(label = "Shelf") else visuals,
                     compact = true,
-                    decorative = true,
-                    modifier = Modifier.align(Alignment.CenterStart)
+                    decorative = true
                 )
+            }
         }
         Column(Modifier.fillMaxWidth()) {
             Text(
@@ -97,7 +99,7 @@ fun BookCoverCard(
                 style = MaterialTheme.typography.titleSmall.copy(
                     fontSize = titleSize, lineHeight = titleSize * 1.35f, lineHeightStyle = ShelfLineHeight
                 ),
-                modifier = Modifier.padding(top = 3.dp),
+                modifier = Modifier.padding(top = 7.dp),
                 maxLines = 2,
                 minLines = 2,
                 overflow = TextOverflow.Ellipsis
